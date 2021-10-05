@@ -1,6 +1,18 @@
-#include <iostream>
+#define DEV
+// #define PRODUCTION
+
+#include "include/stack.h"
+
+
 
 int main() {
-   std::cout << "Hello, World!" << std::endl;
+   Stack stack = {};
+   stack_init(&stack);
+   
+   
+   print_stack(stack);
+   
+  // stack_push(&stack, 210);
+   
    return 0;
 }
