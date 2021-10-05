@@ -3,4 +3,4 @@ project(stack)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(stack main.cpp src/stack.cpp include/stack.h)
+add_executable(stack main.cpp include/stack.h src/stack_functions.cpp include/stack_functions.h)
