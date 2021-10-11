@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #define STK_SPECIFIER "d"
-#define STK_SECTIONS_ON 1
 
 /*!
  * @brief Typedef for stack element's data type
@@ -23,9 +22,9 @@ struct Stack {
 
 /// global constants ->
 
-const stk_element_t STK_INIT_DATA         = 'u';
-const size_t        STK_SECTION_CAPACITY  = 16;
-const size_t        STK_MIN_CAPACITY      = STK_SECTION_CAPACITY;
+const stk_element_t STK_POISON           = 'u';
+const size_t        STK_MIN_CAPACITY     = 0;
+const size_t        STK_INIT_CAPACITY    = STK_MIN_CAPACITY;
 
 enum StackStatementResult {
    STK_SUCCESS,
@@ -36,14 +35,14 @@ enum StackStatementResult {
    STK_ERROR__STACK_ELEMENTS_NULLPTR,
    STK_ERROR__UNALLOCATED_MEMORY,
    STK_ERROR__OUTPUT_NULLPTR,
-   STK_ERROR__STACK_MISUSE
+   STK_ERROR__STACK_MISUSE,
+   STK_ERROR__STACK_SIZE_MAX
 };
 
 enum StackTypes {
    STK_TYPE__INT,
-   STK_TYPE__FLOAT,
-   STK_TYPE__DOUBLE,
-   STK_TYPE__CHAR
+   STK_TYPE__CHAR,
+   STK_TYPE__DOUBLE
 };
 
 /// <- global constants
