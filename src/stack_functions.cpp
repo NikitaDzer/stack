@@ -21,29 +21,31 @@ typedef StackStatementResult StatementResult;
 static StatementResult is_stack_nullptr(const Stack *const p_stack)
 {
    if (p_stack == nullptr)
-      return STK_ERROR__NULLPTR;
+      return STK_ERROR__STACK_NULLPTR;
    
    return STK_SUCCESS;
 }
 
-void stack_dump(const Stack *const p_stack, const char *const file, const int line )
+void stack_dump( const Stack *const p_stack, const char *const file, const int line )
 {
    const char OK[] = "ok";
    const char BAD[] = "bad";
    
    bool is_address_ok = p_stack != nullptr;
-   bool is_size_ok = p_stack->size <= p_stack->capacity;
-   bool is_capacity_ok = p_stack->capacity >= p_stack->size;
+   bool is_size_ok = p_stack->size <= p_stack->capacity && p_stack->size <= p_stack->minCapacity;
+   bool is_capacity_ok = p_stack->capacity >= p_stack->size && p_stack->capacity >= p_stack->minCapacity;
+   bool is_minCapacity_ok = p_stack->capacity >= p_stack->minCapacity && p_stack->size <= p_stack->minCapacity;
    bool is_elements_ok = p_stack->elements != nullptr;
    
    char *const p_data = (char *)calloc(500 + p_stack->size * 3, sizeof(char));
    
    strcpy( p_data, "Stack location: %s (%d)\n"
-                   "| address:   %16p %s |\n"
-                   "| size:      %16zu %s |\n"
-                   "| capacity:  %16zu %s |\n"
-                   "| elements:  %16p %s |\n"
-                   "| data:      [ " );
+                   "| address:     %16p %s |\n"
+                   "| size:        %16zu %s |\n"
+                   "| capacity:    %16zu %s |\n"
+                   "| minCapacity: %16zu %s |\n"
+                   "| elements:    %16p %s |\n"
+                   "| data:        [ " );
 
    const size_t len = strlen(p_data);
    for (size_t i = 0; i < p_stack->size; i++) {
@@ -56,50 +58,79 @@ void stack_dump(const Stack *const p_stack, const char *const file, const int li
    p_data[len + 2 + p_stack->size * 3] = '\0';
    
    printf("Stack location: %s (%d)\n"
-          "| address:   %16p %s |\n"
-          "| size:      %16zu %s |\n"
-          "| capacity:  %16zu %s |\n"
-          "| elements:  %16p %s |\n",
+          "| address:     %16p %s |\n"
+          "| size:        %16zu %s |\n"
+          "| capacity:    %16zu %s |\n"
+          "| minCapacity: %16zu %s |\n"
+          "| elements:    %16p %s |\n",
           file, line,
           p_stack, is_address_ok ? OK : BAD,
           p_stack->size, is_size_ok ? OK : BAD,
           p_stack->capacity, is_capacity_ok ? OK : BAD,
+          p_stack->minCapacity, is_minCapacity_ok ? OK : BAD,
           p_stack->elements, is_elements_ok ? OK : BAD);
    
    for (size_t i = 0; i < p_stack->size; i++)
-      printf("|| %zu:\t\t%13" STK_SPECIFIER "   ||\n", i, p_stack->elements[i]);
+      printf("|| %zu:\t\t  %13" STK_SPECIFIER "   ||\n", i, p_stack->elements[i]);
 }
 
-static size_t calc_stack_capacity(const size_t minCapacity)
+static size_t calc_stack_capacity( const size_t capacity, const size_t minCapacity )
 {
-   if (minCapacity <= STK_SECTION_CAPACITY)
-      return STK_SECTION_CAPACITY;
+   if (capacity <= minCapacity)
+      return minCapacity;
    
-   return ( (minCapacity - 1) / STK_SECTION_CAPACITY + 1 ) * STK_SECTION_CAPACITY;
+   return ((capacity - 1) / STK_SECTION_CAPACITY + 1 ) * STK_SECTION_CAPACITY;
+}
+
+static size_t calc_stack_minCapacity(const size_t minCapacity)
+{
+   if (minCapacity <= STK_MIN_CAPACITY)
+      return STK_MIN_CAPACITY;
+   
+   return ((minCapacity - 1) / STK_MIN_CAPACITY + 1 ) * STK_MIN_CAPACITY;
 }
 
 static bool is_stack_inited(Stack* p_stack)
 {
-   return p_stack->size != 0 || p_stack->capacity != 0 || p_stack->elements != nullptr;
+   return p_stack->size != 0 ||
+          p_stack->capacity != 0 ||
+          p_stack->minCapacity != 0 ||
+          p_stack->elements != nullptr;
 }
 
-StatementResult stack_init(Stack *const p_stack, const size_t minInitCapacity)
+static bool is_stack_invalid(const Stack *const p_stack)
+{
+   if ( p_stack->elements != nullptr &&
+        p_stack->size <= p_stack->capacity &&
+        p_stack->minCapacity <= p_stack->capacity &&
+        STK_MIN_CAPACITY <= p_stack->capacity &&
+        STK_MIN_CAPACITY <= p_stack->minCapacity )
+      return false;
+   
+   return true;
+}
+
+StatementResult stack_init( Stack *const p_stack,
+                            const size_t desiredMinCapacity,
+                            const size_t desiredInitCapacity )
 {
    if (p_stack == nullptr)
-      return STK_ERROR__NULLPTR;
+      return STK_ERROR__STACK_NULLPTR;
    
    if (is_stack_inited(p_stack))
-      return STK_ERROR__REINITIALIZATION;
+      return STK_ERROR__STACK_REINITIALIZATION;
    
-   const size_t     initCapacity = calc_stack_capacity(minInitCapacity);
-   element_t *const elements     = (element_t *)calloc(initCapacity, sizeof(element_t));
+   const size_t     minCapacity  = calc_stack_minCapacity(desiredMinCapacity);
+   const size_t     initCapacity = calc_stack_capacity( desiredInitCapacity, minCapacity );
+   element_t *const elements     = (element_t *)calloc( initCapacity, sizeof(element_t) );
 
    if (elements == nullptr)
       return STK_ERROR__UNALLOCATED_MEMORY;
    
-   p_stack->size     = 0;
-   p_stack->capacity = initCapacity;
-   p_stack->elements = elements;
+   p_stack->size        = 0;
+   p_stack->capacity    = initCapacity;
+   p_stack->minCapacity = minCapacity;
+   p_stack->elements    = elements;
    
    return STK_SUCCESS;
 }
@@ -107,10 +138,10 @@ StatementResult stack_init(Stack *const p_stack, const size_t minInitCapacity)
 StatementResult stack_push( Stack *const p_stack, const element_t element )
 {
    if (p_stack == nullptr)
-      return STK_ERROR__NULLPTR;
-   
-   if (p_stack->elements == nullptr)
-      return STK_ERROR__ELEMENTS_NULLPTR;
+      return STK_ERROR__STACK_NULLPTR;
+
+   if (is_stack_invalid(p_stack))
+      return STK_ERROR__STACK_MISUSE;
    
    if (p_stack->size == p_stack->capacity) {
       p_stack->capacity += STK_SECTION_CAPACITY;
@@ -129,20 +160,23 @@ StatementResult stack_push( Stack *const p_stack, const element_t element )
    return STK_SUCCESS;
 }
 
-element_t stack_pop(Stack *const p_stack)
+StatementResult stack_pop( Stack *const p_stack, element_t *const p_output )
 {
    if (p_stack == nullptr)
-      return 0;
+      return STK_ERROR__STACK_NULLPTR;
    
-   if (p_stack->elements == nullptr)
-      return 0;
+   if (is_stack_invalid(p_stack))
+      return STK_ERROR__STACK_MISUSE;
    
    if (p_stack->size == 0)
-      return 0;
+      return STK_ERROR__STACK_EMPTY;
    
+   if (p_output == nullptr)
+     return STK_ERROR__OUTPUT_NULLPTR;
    
-   const element_t  element  = p_stack->elements[p_stack->size - 1];
-   const size_t     capacity = calc_stack_capacity(p_stack->size - 1);
+   *p_output = p_stack->elements[p_stack->size - 1];
+   
+   const size_t capacity = calc_stack_capacity( p_stack->size - 1, p_stack->minCapacity );
    
    if (capacity != p_stack->capacity) {
       p_stack->elements = (element_t *)realloc( p_stack->elements, p_stack->capacity * sizeof(element_t) );
@@ -153,8 +187,8 @@ element_t stack_pop(Stack *const p_stack)
    else
       p_stack->elements[p_stack->size - 1] = STK_INIT_DATA;
    
-   p_stack->size -= 1;
+   p_stack->size    -= 1;
    p_stack->capacity = capacity;
+   return STK_SUCCESS;
    
-   return element;
 }
