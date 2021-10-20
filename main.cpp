@@ -9,9 +9,10 @@
 
 int main() {
    Stack stack = {};
-   stack_init(&stack, 100, 50);
+   stack_init(&stack, 10);
    
    int p = 10;
+   
    
    stack_push(&stack, 100);
    stack_push(&stack, 500);
@@ -19,13 +20,6 @@ int main() {
    stack_push(&stack, 100);
    stack_push(&stack, 100);
    stack_push(&stack, 100);
-
-   stack_pop(&stack, &p);
-   stack_pop(&stack, &p);
-   stack_pop(&stack, &p);
-   
-   
-   stack_kill(&stack);
    
    stack_dump(&stack, __FILE__, __LINE__);
    
