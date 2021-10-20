@@ -10,16 +10,12 @@
 int main() {
    Stack stack = {};
    stack_init(&stack, 10);
-   
-   int p = 10;
-   
-   
    stack_push(&stack, 100);
+   stack_push(&stack, 200);
+   stack_push(&stack, 300);
+   stack_push(&stack, 400);
    stack_push(&stack, 500);
-   stack_push(&stack, 100);
-   stack_push(&stack, 100);
-   stack_push(&stack, 100);
-   stack_push(&stack, 100);
+   stack_push(&stack, 600);
    
    stack_dump(&stack, __FILE__, __LINE__);
    

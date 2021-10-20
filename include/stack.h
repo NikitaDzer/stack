@@ -18,16 +18,17 @@ struct Stack {
    size_t size;
    size_t capacity;
    size_t minCapacity;
-   stk_element_t *elements;
+   stk_element_t *storage;
+   size_t storage_size_in_bytes;
    size_t hen;
 };
 
 /// global constants ->
 
 const stk_element_t STK_POISON          = 'u';
+const size_t        STK_COCK_HEN        = 12121212121212121212; //! change
 const size_t        STK_MIN_CAPACITY    = 0;
 const size_t        STK_MAX_CAPACITY    = SIZE_MAX >> 1;
-const size_t        STK_COCK_HEN_SHIELD = 2264114400;
 
 enum StackStatementResult {
    SUCCESS,
