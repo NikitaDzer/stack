@@ -27,14 +27,16 @@ static size_t get_storage_hen(const Stack *const p_stack)
    return *(size_t *)((char *)p_stack->storage + p_stack->storage_size_in_bytes - sizeof(STK_COCK_HEN));
 }
 
-static element_t* get_firstElement_ptr(const element_t *const storage)
+static element_t* get_firstElement_pointer(const Stack *const p_stack)
 {
-   return (element_t *)((char *)storage + sizeof(STK_COCK_HEN));
+   return (element_t *)((char *)p_stack->storage + sizeof(STK_COCK_HEN));
 }
 
-static element_t* get_lastElement_ptr(const element_t *const storage, const size_t size) //? maybe fix fn name
+static element_t* get_lastElement_pointer(const Stack *const p_stack) //? maybe fix fn name
 {
-   return (element_t *)((char *)storage + sizeof(STK_COCK_HEN) + sizeof(element_t) * (size - 1)); //? correctly
+   return (element_t *)((char *)p_stack->storage
+                        + sizeof(STK_COCK_HEN)
+                        + sizeof(element_t) * (p_stack->size - 1)); //? correctly
 }
 
 void stack_dump( const Stack *const p_stack, const char *const file, const int line )
@@ -83,10 +85,10 @@ void stack_dump( const Stack *const p_stack, const char *const file, const int l
           get_storage_hen(p_stack), is_s_hen_ok ? OK : BAD);
    
    
-   for (element_t *p_element = get_firstElement_ptr(p_stack->storage);
-        p_element <= get_lastElement_ptr(p_stack->storage, p_stack->size);
+   for (element_t *p_element = get_firstElement_pointer(p_stack);
+        p_element <= get_lastElement_pointer(p_stack);
         p_element++)
-      printf("|%zu:\t\t  %20" STK_SPECIFIER "   \n", p_element - get_firstElement_ptr(p_stack->storage), *p_element);
+      printf("|%zu:\t\t  %20" STK_SPECIFIER "   \n", p_element - get_firstElement_pointer(p_stack), *p_element);
 }
 
 
@@ -112,7 +114,8 @@ static bool is_stack_invalid(const Stack *const p_stack)
    return true;
 }
 
-static int stack_change_capacity(Stack *const p_stack, const bool is_increment)
+//! fix bag with capacity
+static int stack_change_capacity(Stack *const p_stack, const char operation)
 {
    //! align declarations
    const size_t minCapacity  = p_stack->minCapacity;
@@ -121,39 +124,34 @@ static int stack_change_capacity(Stack *const p_stack, const bool is_increment)
    size_t       newSize      = 0;
    size_t       newCapacity  = 0;
    
-   if (is_increment)
+   
+   if (operation == '+')
    {
       if (prevSize == STK_MAX_CAPACITY)
          return 1;
    
       newSize = prevSize + 1;
    
-      if (newSize <= minCapacity)
-         newCapacity = minCapacity;
+      if (prevCapacity == 0)
+         newCapacity = 2;
+      else if (newSize <= prevCapacity)
+         newCapacity = prevCapacity;
       else
-      {
-         if (newSize <= prevCapacity)
-            newCapacity = prevCapacity;
-         else
-            newCapacity = prevCapacity * 2;
-      }
+         newCapacity = prevCapacity * 2;
    }
-   else
+   else if (operation == '-')
    {
       if (prevSize == 0)
          return 1;
    
       newSize = prevSize - 1;
-   
+      
        if (newSize <= minCapacity)
          newCapacity = minCapacity;
+       else if (newSize * 2 <= prevCapacity) //! opt
+          newCapacity = prevCapacity / 2; //! opt
        else
-       {
-          if (newSize * 2 <= prevCapacity) //! opt
-             newCapacity = prevCapacity / 2; //! opt
-          else
-             newCapacity = prevCapacity;
-       }
+          newCapacity = prevCapacity;
    }
    
    p_stack->size     = newSize;
@@ -165,6 +163,10 @@ static int stack_change_capacity(Stack *const p_stack, const bool is_increment)
 
 
 
+static int stack_alloc(Stack *const p_stack)
+{
+
+}
 
 static int stack_realloc(Stack *const p_stack) //! make poison filler
 {
@@ -182,7 +184,7 @@ static int stack_realloc(Stack *const p_stack) //! make poison filler
                    shield_size_in_bytes    = sizeof(STK_COCK_HEN) * 2,
                    container_size_in_bytes = sizeof(element_t) * capacity;
       storage_size_in_bytes = cock_size_in_bytes;
-   
+
       while (storage_size_in_bytes < container_size_in_bytes)
          storage_size_in_bytes += cock_size_in_bytes;
    
@@ -239,11 +241,13 @@ StatementResult stack_init(Stack *const p_stack, const size_t desiredMinCapacity
    p_stack->size        = 0;
    p_stack->capacity    = minCapacity;
    p_stack->minCapacity = minCapacity;
+   p_stack->storage     = nullptr;
+   p_stack->storage_size_in_bytes = 0;
    p_stack->hen         = STK_COCK_HEN;
    
    stack_realloc(p_stack);
    
-   return StackStatementResult::SUCCESS;
+   return StackStatementResult::NOERR;
 }
 
 StatementResult stack_push(Stack *const p_stack, const element_t element)
@@ -253,16 +257,16 @@ StatementResult stack_push(Stack *const p_stack, const element_t element)
 
    if (is_stack_invalid(p_stack))
       return StatementResult::STACK_MISUSE;
-
-   if (stack_change_capacity(p_stack, true))
+   
+   if (stack_change_capacity(p_stack, '+'))
       return StatementResult::STACK_EXCEEDED_MAX_CAPACITY;
    
    if (stack_realloc(p_stack))
       return StatementResult::STACK_NON_UPDATED_ELEMENTS;
    
-   *get_lastElement_ptr(p_stack->storage, p_stack->size) = element;
+   *get_lastElement_pointer(p_stack) = element;
    
-   return StatementResult::SUCCESS;
+   return StatementResult::NOERR;
 }
 
 
@@ -280,15 +284,15 @@ StatementResult stack_pop(Stack *const p_stack, element_t *const p_output)
    if (p_output == nullptr)
      return StatementResult::OUTPUT_NULLPTR;
    
-   *p_output = *get_lastElement_ptr(p_stack->storage, p_stack->size);
+   *p_output = *get_lastElement_pointer(p_stack);
    
-   if (stack_change_capacity(p_stack, false))
+   if (stack_change_capacity(p_stack, '-'))
       return StatementResult::STACK_EXCEEDED_MAX_CAPACITY;
    
    if (stack_realloc(p_stack))
       return StatementResult::STACK_NON_UPDATED_ELEMENTS;
 
-   return StatementResult::SUCCESS;
+   return StatementResult::NOERR;
 }
 
 StatementResult stack_kill(Stack *const p_stack)
@@ -303,25 +307,30 @@ StatementResult stack_kill(Stack *const p_stack)
    p_stack->capacity = 0;
    p_stack->minCapacity = 0;
    p_stack->storage = nullptr;
+   p_stack->storage_size_in_bytes = 0;
    p_stack->hen = 0;
    
-   return StatementResult::SUCCESS;
+   return StatementResult::NOERR;
 }
 
 static StatementResult stack_inspector(const Stack *const p_stack) {
-   /*
+   
    if (p_stack == nullptr)
-      return STK_ERROR__STACK_NULLPTR;
+      return StatementResult::STACK_NULLPTR;
    
-   if (p_stack->size > p_stack->capacity)
-      return STK_ERROR__STACK_NULLPTR;
+   if ( p_stack->size > p_stack->capacity ||
+        p_stack->minCapacity > p_stack->capacity ||
+        (p_stack->storage == nullptr && p_stack->size != 0 && p_stack->capacity != 0) ||
+        p_stack->cock != STK_COCK_HEN ||
+        p_stack->hen != STK_COCK_HEN)
+      return StatementResult::STACK_BANNED;
    
-   if (p_stack->elements == nullptr && p_stack->size == 0) {
-      return STK_ERROR__STACK_NULLPTR;
-   }
-   
-   
-   if (p_stack->minCapacity <= p_stack->capacity)
-      return STK_ERROR__STACK_NULLPTR;
-*/
+//   if (p_stack->elements == nullptr && p_stack->size == 0) {
+//      return STK_ERROR__STACK_NULLPTR;
+//   }
+//
+//
+//   if (p_stack->minCapacity <= p_stack->capacity)
+//      return STK_ERROR__STACK_NULLPTR;
+
 }

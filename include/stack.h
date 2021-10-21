@@ -31,7 +31,7 @@ const size_t        STK_MIN_CAPACITY    = 0;
 const size_t        STK_MAX_CAPACITY    = SIZE_MAX >> 1;
 
 enum StackStatementResult {
-   SUCCESS,
+   NOERR,
    STACK_NULLPTR,
    STACK_UNINITIALIZED,
    STACK_REINITIALIZATION,
@@ -41,7 +41,8 @@ enum StackStatementResult {
    OUTPUT_NULLPTR,
    STACK_MISUSE,
    STACK_EXCEEDED_MAX_CAPACITY,
-   STACK_NON_UPDATED_ELEMENTS
+   STACK_NON_UPDATED_ELEMENTS,
+   STACK_BANNED
 };
 
 enum StackTypes {
