@@ -24,6 +24,6 @@ StackStatementResult stack_push(Stack *const p_stack, const stk_element_t elemen
 
 StackStatementResult stack_pop(Stack *const p_stack, stk_element_t *const p_output);
 
-StackStatementResult stack_kill(Stack *const p_stack);
+StackStatementResult stack_destroy(Stack *const p_stack);
 
 #endif // STACK_FUNCTIONS_H

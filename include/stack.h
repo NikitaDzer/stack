@@ -19,7 +19,7 @@ struct Stack {
    size_t capacity;
    size_t minCapacity;
    stk_element_t *storage;
-   size_t storage_size_in_bytes;
+   size_t storage_bytes;
    size_t hen;
 };
 
