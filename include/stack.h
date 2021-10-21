@@ -14,13 +14,13 @@ typedef int stk_element_t;
  * @brief Stack
  */
 struct Stack {
-   size_t cock;
-   size_t size;
-   size_t capacity;
-   size_t minCapacity;
+   size_t         cock;
+   size_t         size;
+   size_t         capacity;
+   size_t         minCapacity;
    stk_element_t *storage;
-   size_t storage_bytes;
-   size_t hen;
+   size_t         storage_bytes;
+   size_t         hen;
 };
 
 /// global constants ->
@@ -30,7 +30,7 @@ const size_t        STK_COCK_HEN        = 12121212121212121212; //! change
 const size_t        STK_MIN_CAPACITY    = 0;
 const size_t        STK_MAX_CAPACITY    = SIZE_MAX >> 1;
 
-enum StackStatementResult {
+enum StackError {
    NOERR,
    STACK_NULLPTR,
    STACK_UNINITIALIZED,

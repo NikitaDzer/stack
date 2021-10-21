@@ -11,11 +11,6 @@
  */
 typedef stk_element_t element_t;
 
-/*!
- * @brief Typedef for result of statement with stack
- */
-typedef StackStatementResult StatementResult;
-
 
 static size_t* find_storage_cock(const Stack *const p_stack)
 {
@@ -91,12 +86,16 @@ void stack_dump( const Stack *const p_stack, const char *const file, const int l
       printf("|%zu:\t\t  %20" STK_SPECIFIER "   \n", p_element - find_firstElement(p_stack), *p_element);
 }
 
+//! try other definition
 static bool is_stack_inited(Stack* p_stack)
 {
-   return p_stack->size != 0 ||
-          p_stack->capacity != 0 ||
-          p_stack->minCapacity != 0 ||
-          p_stack->storage != nullptr;
+   return    p_stack->cock          == STK_COCK_HEN
+          || p_stack->size          != 0
+          || p_stack->capacity      != 0
+          || p_stack->minCapacity   != 0
+          || p_stack->storage       != nullptr
+          || p_stack->storage_bytes != 0
+          || p_stack->hen           == STK_COCK_HEN;
 }
 
 static bool is_stack_invalid(const Stack *const p_stack)
@@ -111,52 +110,6 @@ static bool is_stack_invalid(const Stack *const p_stack)
       return false;
    
    return true;
-}
-
-//! fix bag with capacity
-static int stack_resize(Stack *const p_stack, const char operation)
-{
-   //! align declarations
-   const size_t minCapacity  = p_stack->minCapacity;
-   const size_t prevSize     = p_stack->size;
-   const size_t prevCapacity = p_stack->capacity;
-   size_t       newSize      = 0;
-   size_t       newCapacity  = 0;
-   
-   
-   if (operation == '+')
-   {
-      if (prevSize == STK_MAX_CAPACITY)
-         return 1;
-   
-      newSize = prevSize + 1;
-   
-      if (prevCapacity == 0)
-         newCapacity = 2;
-      else if (newSize <= prevCapacity)
-         newCapacity = prevCapacity;
-      else
-         newCapacity = prevCapacity * 2;
-   }
-   else if (operation == '-')
-   {
-      if (prevSize == 0)
-         return 1;
-   
-      newSize = prevSize - 1;
-      
-       if (newSize <= minCapacity)
-         newCapacity = minCapacity;
-       else if (newSize * 2 <= prevCapacity) //! opt
-          newCapacity = prevCapacity / 2; //! opt
-       else
-          newCapacity = prevCapacity;
-   }
-   
-   p_stack->size     = newSize;
-   p_stack->capacity = newCapacity;
-   
-   return 0;
 }
 
 static size_t calc_storage_bytes(const Stack *const p_stack)
@@ -178,20 +131,6 @@ static size_t calc_storage_bytes(const Stack *const p_stack)
    }
    
    return storage_size_in_bytes;
-}
-
-static int stack_alloc(Stack *const p_stack)
-{
-   const size_t     storage_bytes = calc_storage_bytes(p_stack);
-   element_t *const storage               = (element_t *)calloc(storage_bytes, sizeof(char));
-   
-   if (storage == nullptr)
-      return 1;
-   
-   p_stack->storage       = storage;
-   p_stack->storage_bytes = storage_bytes;
-   
-   return 0;
 }
 
 static int stack_realloc(Stack *const p_stack) //! make poison filler
@@ -219,121 +158,65 @@ static int stack_realloc(Stack *const p_stack) //! make poison filler
    return 0;
 }
 
-static size_t calc_min_capacity(const size_t desiredMinCapacity)
+static int stack_resize(Stack *const p_stack, const char operation)
 {
-   if (desiredMinCapacity == 0)
-      return 0;
+   //! align declarations
+   const size_t minCapacity  = p_stack->minCapacity;
+   const size_t prevSize     = p_stack->size;
+   const size_t prevCapacity = p_stack->capacity;
+   size_t       newSize      = 0;
+   size_t       newCapacity  = 0;
    
-   if (desiredMinCapacity > STK_MAX_CAPACITY)
-      return STK_MAX_CAPACITY;
    
-  size_t minCapacity = 2;
-   
-   while (minCapacity < desiredMinCapacity)
-      minCapacity *= 2;
-   
-   return minCapacity;
-}
-
-StatementResult stack_init(Stack *const p_stack, const size_t desiredMinCapacity)
-{
-   if (p_stack == nullptr)
-      return StatementResult::STACK_NULLPTR;
-   
-   if (is_stack_inited(p_stack))
-      return StatementResult::STACK_REINITIALIZATION;
-   
-   size_t minCapacity = calc_min_capacity(desiredMinCapacity);
-   
-   p_stack->cock                  = STK_COCK_HEN;
-   p_stack->size                  = 0;
-   p_stack->capacity              = minCapacity;
-   p_stack->minCapacity           = minCapacity;
-   p_stack->storage               = nullptr;
-   p_stack->storage_bytes         = 0;
-   p_stack->hen                   = STK_COCK_HEN;
-   
-   if (stack_realloc(p_stack))
-      return StatementResult::UNALLOCATED_MEMORY;
-   
-   return StackStatementResult::NOERR;
-}
-
-StatementResult stack_push(Stack *const p_stack, const element_t element)
-{
-   if (p_stack == nullptr)
-      return StatementResult::STACK_NULLPTR;
-
-   if (is_stack_invalid(p_stack))
-      return StatementResult::STACK_MISUSE;
+   if (operation == '+')
+   {
+      if (prevSize == STK_MAX_CAPACITY)
+         return 1;
       
-   if (stack_resize(p_stack, '+'))
-      return StatementResult::STACK_EXCEEDED_MAX_CAPACITY;
+      newSize = prevSize + 1;
+      
+      if (prevCapacity == 0)
+         newCapacity = 2;
+      else if (newSize <= prevCapacity)
+         newCapacity = prevCapacity;
+      else
+         newCapacity = prevCapacity * 2;
+   }
+   else if (operation == '-')
+   {
+      if (prevSize == 0)
+         return 1;
+      
+      newSize = prevSize - 1;
+      
+      if (newSize <= minCapacity)
+         newCapacity = minCapacity;
+      else if (newSize * 2 <= prevCapacity) //! opt
+         newCapacity = prevCapacity / 2; //! opt
+      else
+         newCapacity = prevCapacity;
+   }
    
-   if (stack_realloc(p_stack))
-      return StatementResult::STACK_NON_UPDATED_ELEMENTS;
+   p_stack->size     = newSize;
+   p_stack->capacity = newCapacity;
    
-   *find_lastElement(p_stack) = element;
+   stack_realloc(p_stack);
    
-   return StatementResult::NOERR;
+   return 0;
 }
 
-
-StatementResult stack_pop(Stack *const p_stack, element_t *const p_output)
-{
-   if (p_stack == nullptr)
-      return StatementResult::STACK_NULLPTR;
-   
-   if (is_stack_invalid(p_stack))
-      return StatementResult::STACK_MISUSE;
-   
-   if (p_stack->size == 0)
-      return StatementResult::STACK_EMPTY;
-   
-   if (p_output == nullptr)
-     return StatementResult::OUTPUT_NULLPTR;
-   
-   *p_output = *find_lastElement(p_stack);
-   
-   if (stack_resize(p_stack, '-'))
-      return StatementResult::STACK_EXCEEDED_MAX_CAPACITY;
-   
-   if (stack_realloc(p_stack))
-      return StatementResult::STACK_NON_UPDATED_ELEMENTS;
-
-   return StatementResult::NOERR;
-}
-
-StatementResult stack_destroy(Stack *const p_stack)
-{
-   if (p_stack == nullptr)
-      return StatementResult::STACK_NULLPTR;
-   
-   free(p_stack->storage);
-   
-   p_stack->cock = 0;
-   p_stack->size = 0;
-   p_stack->capacity = 0;
-   p_stack->minCapacity = 0;
-   p_stack->storage = nullptr;
-   p_stack->storage_bytes = 0;
-   p_stack->hen = 0;
-   
-   return StatementResult::NOERR;
-}
-
-static StatementResult stack_inspector(const Stack *const p_stack) {
+static StackError stack_inspector(const Stack *const p_stack) {
    
    if (p_stack == nullptr)
-      return StatementResult::STACK_NULLPTR;
+      return StackError::STACK_NULLPTR;
    
    if ( p_stack->size > p_stack->capacity ||
         p_stack->minCapacity > p_stack->capacity ||
         (p_stack->storage == nullptr && p_stack->size != 0 && p_stack->capacity != 0) ||
         p_stack->cock != STK_COCK_HEN ||
         p_stack->hen != STK_COCK_HEN)
-      return StatementResult::STACK_BANNED;
-   
+      return StackError::STACK_BANNED;
+
 //   if (p_stack->elements == nullptr && p_stack->size == 0) {
 //      return STK_ERROR__STACK_NULLPTR;
 //   }
@@ -342,4 +225,108 @@ static StatementResult stack_inspector(const Stack *const p_stack) {
 //   if (p_stack->minCapacity <= p_stack->capacity)
 //      return STK_ERROR__STACK_NULLPTR;
 
+}
+
+static size_t calc_min_capacity(const size_t desiredMinCapacity)
+{
+   if (desiredMinCapacity == 0)
+      return 0;
+   
+   if (desiredMinCapacity > STK_MAX_CAPACITY)
+      return STK_MAX_CAPACITY;
+   
+   size_t minCapacity = 2;
+   
+   while (minCapacity < desiredMinCapacity)
+      minCapacity *= 2;
+   
+   return minCapacity;
+}
+
+
+
+
+
+
+StackError stack_init(Stack *const p_stack, const size_t desiredMinCapacity)
+{
+   if (p_stack == nullptr)
+      return StackError::STACK_NULLPTR;
+   
+   if (is_stack_inited(p_stack))
+      return StackError::STACK_REINITIALIZATION;
+   
+   size_t minCapacity = calc_min_capacity(desiredMinCapacity);
+   
+   p_stack->cock          = STK_COCK_HEN;
+   p_stack->size          = 0;
+   p_stack->capacity      = minCapacity;
+   p_stack->minCapacity   = minCapacity;
+   p_stack->storage       = nullptr;
+   p_stack->storage_bytes = 0;
+   p_stack->hen           = STK_COCK_HEN;
+   
+   if (stack_realloc(p_stack))
+      return StackError::UNALLOCATED_MEMORY;
+   
+   return StackError::NOERR;
+}
+
+StackError stack_push(Stack *const p_stack, const element_t element)
+{
+   if (p_stack == nullptr)
+      return StackError::STACK_NULLPTR;
+
+   if (is_stack_invalid(p_stack))
+      return StackError::STACK_MISUSE;
+      
+   if (stack_resize(p_stack, '+'))
+      return StackError::STACK_EXCEEDED_MAX_CAPACITY;
+   
+   *find_lastElement(p_stack) = element;
+   
+   return StackError::NOERR;
+}
+
+StackError stack_pop(Stack *const p_stack, element_t *const p_output)
+{
+   if (p_stack == nullptr)
+      return StackError::STACK_NULLPTR;
+   
+   if (is_stack_invalid(p_stack))
+      return StackError::STACK_MISUSE;
+   
+   if (p_stack->size == 0)
+      return StackError::STACK_EMPTY;
+   
+   if (p_output == nullptr)
+     return StackError::OUTPUT_NULLPTR;
+   
+   *p_output = *find_lastElement(p_stack);
+   
+   if (stack_resize(p_stack, '-'))
+      return StackError::STACK_EXCEEDED_MAX_CAPACITY;
+   
+   if (stack_realloc(p_stack))
+      return StackError::STACK_NON_UPDATED_ELEMENTS;
+
+   return StackError::NOERR;
+}
+
+StackError stack_destroy(Stack *const p_stack)
+{
+   if (p_stack == nullptr)
+      return StackError::STACK_NULLPTR;
+   
+   free(p_stack->storage);
+   
+   p_stack->cock          = 0;
+   p_stack->size          = 0;
+   p_stack->capacity      = 0;
+   p_stack->minCapacity   = 0;
+   p_stack->storage       = nullptr;
+   p_stack->storage_bytes = 0;
+   p_stack->hen           = 0;
+   
+   return StackError::NOERR;
 }

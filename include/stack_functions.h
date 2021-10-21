@@ -18,12 +18,12 @@ void stack_dump( const Stack *const p_stack, const char *const file, const int l
  * @param initData Stack initial data
  * @return
  */
-StackStatementResult stack_init(Stack *const p_stack, const size_t minCapacity = STK_MIN_CAPACITY);
+StackError stack_init(Stack *const p_stack, const size_t minCapacity = STK_MIN_CAPACITY);
 
-StackStatementResult stack_push(Stack *const p_stack, const stk_element_t element);
+StackError stack_push(Stack *const p_stack, const stk_element_t element);
 
-StackStatementResult stack_pop(Stack *const p_stack, stk_element_t *const p_output);
+StackError stack_pop(Stack *const p_stack, stk_element_t *const p_output);
 
-StackStatementResult stack_destroy(Stack *const p_stack);
+StackError stack_destroy(Stack *const p_stack);
 
 #endif // STACK_FUNCTIONS_H
