@@ -4,8 +4,6 @@
 
 #include "../include/stack_functions.h"
 
-
-
 /*!
  * @brief Typedef for stack element's data type
  */
