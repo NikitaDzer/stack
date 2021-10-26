@@ -1,0 +1,8 @@
+# ninja log v5
+11	84	6568878465241772	CMakeFiles/stack.dir/src/config.cpp.obj	7e045805d80d0c2
+35	85	6568878465241772	CMakeFiles/stack.dir/src/dump.cpp.obj	2fd2bdcf4250508c
+6	128	6568878465681874	CMakeFiles/stack.dir/src/stack_methods.cpp.obj	4ed8c7fa225d9212
+0	131	6568878465721870	CMakeFiles/stack.dir/main.cpp.obj	9b16be5d244c82a1
+22	132	6568878465731911	CMakeFiles/stack.dir/prototyping/prototyping.cpp.obj	a8499ff329f245f2
+18	141	6568878465831895	CMakeFiles/stack.dir/src/stack.cpp.obj	289a9fe66a0205b6
+141	433	6568878468662534	stack.exe	27758eba43fd22ee
