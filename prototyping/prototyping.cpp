@@ -12,7 +12,7 @@ uint64_t qhash(const void *const data, const size_t data_bytes)
    const char *const lastByte = byte + data_bytes;
    uint64_t          hash     = 0xDED007;
    
-   while (byte <= lastByte)
+   while (byte < lastByte)
       hash = ((hash << 0x8) + (hash >> 0x8)) ^ *byte++;
    
    // hash = (hash << (byte & 0xff | 1) | hash << (byte & 0xf) | hash >> (byte & 0xf) ^ hash)

@@ -3,40 +3,54 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "config.h"
 
-#define STK_SPECIFIER "d"
-
-/*!
- * @brief Typedef for stack element's data type
- */
-typedef int stk_element_t;
-
-typedef size_t stk_canary_t;
+#ifdef STK_UNPROTECT
+#undef STK_CANARY_PROTECT
+#undef STK_HASH_PROTECT
+#endif
 
 typedef size_t stk_bitmask_t;
 
-/*!
- * @brief Stack
- */
-struct Stack {
+#ifdef STK_CANARY_PROTECT
+typedef size_t stk_canary_t;
+#endif
+
+#ifdef STK_HASH_PROTECT
+typedef size_t stk_hash_t;
+#endif
+
+const char   STK_POISON          = 'u';
+const size_t STK_MIN_CAPACITY    = 0;
+const size_t STK_MAX_CAPACITY    = SIZE_MAX >> 1;
+
+#ifdef STK_CANARY_PROTECT
+const stk_canary_t  STK_CANARY          = 7171717171717171; //! change
+#endif
+
+struct Stack
+{
+#ifdef STK_CANARY_PROTECT
    stk_canary_t   leftCanary;
-   size_t         minCapacity;
+#endif
+   
    size_t         size;
    size_t         capacity;
+   size_t         minCapacity;
    size_t         bytes;
    void          *storage;
-   size_t         hash;
+
+#ifdef STK_HASH_PROTECT
+   stk_hash_t      hash;
+#endif
+
+#ifdef STK_CANARY_PROTECT
    stk_canary_t   rightCanary;
+#endif
 };
 
-/// global constants ->
-
-const stk_element_t STK_POISON          = 'u';
-const stk_canary_t  STK_CANARY          = 7171717171717171; //! change
-const size_t        STK_MIN_CAPACITY    = 0;
-const size_t        STK_MAX_CAPACITY    = SIZE_MAX >> 1;
-
-enum StackDetails {
+enum StackDetails
+{
    HEALTHY                        = 0 << 0,
    BANNED                         = 1 << 0,
    EMPTY                          = 1 << 1,
@@ -47,7 +61,8 @@ enum StackDetails {
    STORAGE_RIGHT_CANARY_ATTACKED  = 1 << 6,
 };
 
-enum StackStatementDetails {
+enum StackStatementDetails
+{
    SUCCESS                            = 0 << 16,
    ERROR                              = 1 << 16,
    STACK_NULLPTR                      = 1 << 17,
@@ -61,15 +76,6 @@ enum StackStatementDetails {
    HASH_NOT_VERIFIED                  = 1 << 25,
 };
 
-
-
-enum StackTypes {
-   STK_TYPE__INT,
-   STK_TYPE__CHAR,
-   STK_TYPE__DOUBLE
-};
-
-/// <- global constants
 
 void stack_dump(const Stack *const p_stack, const char *const file, const int line );
 
