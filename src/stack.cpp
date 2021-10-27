@@ -163,18 +163,13 @@ typedef stk_element_t element_t;
 typedef stk_canary_t  canary_t;
 #endif
 
-#ifdef STK_HASH_PROTECT
-typedef stk_hash_t    hash_t;
-#endif
-
-
 #ifdef STK_CANARY_PROTECT
-static void* find_storage_leftCanary(const void *const storage)
+static inline void* find_storage_leftCanary(const void *const storage)
 {
    return (void *)storage;
 }
 
-static void* find_storage_rightCanary(const void *const storage, const size_t bytes)
+static inline void* find_storage_rightCanary(const void *const storage, const size_t bytes)
 {
    if (storage == nullptr)
       return nullptr;
@@ -184,7 +179,7 @@ static void* find_storage_rightCanary(const void *const storage, const size_t by
 #endif
 
 
-static void* find_firstElement(const void *const storage, const size_t size)
+static inline void* find_firstElement(const void *const storage, const size_t size)
 {
    if (storage == nullptr || size == 0)
       return nullptr;
@@ -196,7 +191,7 @@ static void* find_firstElement(const void *const storage, const size_t size)
 #endif
 }
 
-static void* find_lastElement(const void *const storage, const size_t size)
+static inline void* find_lastElement(const void *const storage, const size_t size)
 {
    if (storage == nullptr || size == 0)
       return nullptr;
@@ -209,30 +204,18 @@ static void* find_lastElement(const void *const storage, const size_t size)
 }
 
 #ifdef STK_HASH_PROTECT
-static hash_t quickHash(const void *const data, const size_t data_bytes)
-{
-   const char       *byte     = (char *)data;
-   const char *const lastByte = byte + data_bytes;
-   hash_t            hash     = 0xDED007;
-   
-   while (byte < lastByte)
-      hash = ((hash << 0x8) + (hash >> 0x8)) ^ *byte++;
-   
-   return hash;
-}
-
 static int calc_stack_hash(const Stack *const p_stack, hash_t *const p_hash)
 {
    const size_t        bytes = p_stack->bytes;
-   char         *const data  = (char *)malloc(sizeof(Stack) + bytes);
+   void         *const data  = malloc(sizeof(Stack) + bytes);
    
    if (data == nullptr) {
       return 1;
    }
    
-   memcpy(data,                 p_stack,          sizeof(Stack));
-   memcpy(data + sizeof(Stack), p_stack->storage, bytes);
-   memset(data + ((char *)&p_stack->hash - (char *)p_stack), 0, sizeof(size_t));
+   memcpy(data,                         p_stack,          sizeof(Stack));
+   memcpy((char *)data + sizeof(Stack), p_stack->storage, bytes);
+   memset((char *)data + ((char *)&p_stack->hash - (char *)p_stack), 0x00, sizeof(hash_t));
    
    *p_hash = quickHash(data, sizeof(Stack) + bytes);
    
@@ -241,98 +224,6 @@ static int calc_stack_hash(const Stack *const p_stack, hash_t *const p_hash)
    return 0;
 }
 #endif
-
-void stack_dump(const Stack *const p_stack, const char *const file, const int line)
-{
-   printf("minCapacity:  --------   %20zu\n"
-          "size:         --------   %20zu\n"
-          "capacity:     --------   %20zu\n"
-          "bytes:        --------   %20zu\n"
-          "storage:      --------   %20zu\n",
-          p_stack->minCapacity,
-          p_stack->size,
-          p_stack->capacity,
-          p_stack->bytes,
-          p_stack->storage );
-
-#ifdef STK_CANARY_PROTECT
-   printf("lCan:         --------   %20zu\n"
-          "rCan:         --------   %20zu\n",
-          p_stack->leftCanary,
-          p_stack->rightCanary);
-   
-   if (p_stack->storage)
-      printf("slCan:      --------   %20zu\n"
-             "srCan:      --------   %20zu\n",
-             *(canary_t *)find_storage_leftCanary(p_stack->storage),
-             *(canary_t *)find_storage_rightCanary(p_stack->storage, p_stack->bytes));
-#endif
-
-#ifdef STK_HASH_PROTECT
-   printf("hash:       ---------   %20zu\n",
-          p_stack->hash);
-#endif
-   
-   /*const char OK[] = "ok";
-   const char BAD[] = "bad";
-   
-   const bool is_address_ok               = p_stack != nullptr,
-              is_size_ok                  = p_stack->size <= p_stack->capacity,
-              is_capacity_ok              = p_stack->capacity >= p_stack->size
-                                            && p_stack->capacity >= p_stack->minCapacity
-                                            && p_stack->capacity % 2 == 0,
-              is_minCapacity_ok           = p_stack->capacity >= p_stack->minCapacity,
-              is_cock_ok                  = p_stack->leftCanary == STK_CANARY,
-              is_hen_ok                   = p_stack->rightCanary == STK_CANARY;
-   
-   const bool is_storage_ok               = p_stack->storage != nullptr,
-              is_storage_size_in_bytes_ok = p_stack->storage != nullptr
-                                         ? p_stack->bytes != 0 && p_stack->bytes % 8 == 0
-                                         : p_stack->bytes == 0;
-
-   size_t verifyHash = 0;
-   
-//   calc_stack_hash(p_stack, &verifyHash); /// add error processing
-
-   
-   const bool is_hash_ok = verifyHash == p_stack->hash;
-   
-   printf("Dump from: %s (%d)\n"
-          "address:     %20zx %s\n"
-          "size:        %20zu %s\n"
-          "capacity:    %20zu %s\n"
-          "minCapacity: %20zu %s\n"
-          "storage:     %20zx %s\n"
-          "bytes:       %20zu %s\n"
-          "lCan:        %20zu %s\n"
-          "rCan:        %20zu %s\n"
-          "hash:        %20zu %s\n",
-          file, line,
-          p_stack, is_address_ok ? OK : BAD,
-          p_stack->size, is_size_ok ? OK : BAD,
-          p_stack->capacity, is_capacity_ok ? OK : BAD,
-          p_stack->minCapacity, is_minCapacity_ok ? OK : BAD,
-          p_stack->storage, is_storage_ok ? OK : BAD,
-          p_stack->bytes, is_storage_size_in_bytes_ok ? OK : BAD,
-          p_stack->leftCanary, is_cock_ok ? OK : BAD,
-          p_stack->rightCanary, is_hen_ok ? OK : BAD,
-          p_stack->hash, is_hash_ok ? OK : BAD);
-   
-   if (p_stack->storage)
-   {
-      printf("lsCan:       %20zu %s\n"
-             "rsCan:       %20zu %s\n",
-             *(canary_t *)find_storage_leftCanary(p_stack->storage), *(canary_t *)find_storage_leftCanary(p_stack->storage) == STK_CANARY ? OK : BAD,
-             *(canary_t *)find_storage_rightCanary(p_stack->storage, p_stack->bytes), *(canary_t *)find_storage_rightCanary(p_stack->storage, p_stack->bytes) == STK_CANARY ? OK : BAD);
-   }*/
-
-   if (find_firstElement(p_stack->storage, p_stack->size))
-      for (element_t *p_element = (element_t *)find_firstElement(p_stack->storage, p_stack->size);
-           p_element - (element_t *)find_firstElement(p_stack->storage, p_stack->size) < p_stack->capacity;
-           p_element++)
-         printf("|%zu:\t\t  %20" STK_SPECIFIER "   \n", p_element - (element_t *)find_firstElement(p_stack->storage, p_stack->size), *p_element);
-}
-
 
 static int emptyStack_inspector(const Stack *const p_stack)
 {
@@ -408,10 +299,9 @@ static size_t calc_storage_bytes(const size_t capacity)
 #endif
 }
 
-
 static int calc_min_capacity(const size_t userMinCapacity, size_t *const p_minCapacity, bitmask_t *const p_bitmask)
 {
-   if (userMinCapacity > STK_MAX_CAPACITY)
+   if (userMinCapacity > STK_MAX_CAPACITY_)
    {
       *p_bitmask |= StackStatementDetails::WRONG_MIN_CAPACITY;
       return 1;
@@ -421,10 +311,12 @@ static int calc_min_capacity(const size_t userMinCapacity, size_t *const p_minCa
       *p_minCapacity = 0;
    else
    {
-      size_t minCapacity = 2;
+      size_t minCapacity = 0;
    
-      while (minCapacity < userMinCapacity)
-         minCapacity *= 2;
+      if (userMinCapacity / 2 * 2 == userMinCapacity)
+         minCapacity = userMinCapacity;
+      else
+         minCapacity = (userMinCapacity / 2 + 1) * 2;
       
       *p_minCapacity = minCapacity;
    }
@@ -432,9 +324,8 @@ static int calc_min_capacity(const size_t userMinCapacity, size_t *const p_minCa
    return 0;
 }
 
-
-static int storage_update(const size_t capacity, const size_t size,
-                          void **const p_storage, size_t *const p_bytes, bitmask_t *const p_bitmask)
+static int storage_update(void **const p_storage, size_t *const p_bytes,
+                          const size_t capacity, const size_t size, bitmask_t *const p_bitmask)
 {
    size_t  bytes   = 0;
    void   *storage = nullptr;
@@ -467,11 +358,6 @@ static int storage_update(const size_t capacity, const size_t size,
          p_storage_emptySpace = (element_t *)find_lastElement(storage, size) + 1;
 
       memset(p_storage_emptySpace, STK_POISON, (char *)p_storage_rightCanary - (char *)p_storage_emptySpace);
-      
-      /// ?unstable
-//      for (; (element_t *)p_storage_rightCanary - (element_t *)p_storage_emptySpace > 0;
-//             p_storage_emptySpace = (element_t *)p_storage_emptySpace + 1)
-//         *(element_t *)p_storage_emptySpace = STK_POISON;
 #else
       if (size == 0)
          p_storage_emptySpace = (element_t *)storage;
@@ -488,7 +374,6 @@ static int storage_update(const size_t capacity, const size_t size,
    return 0;
 }
 
-
 static int stack_resize(Stack *const p_stack, const char operation, bitmask_t *const p_bitmask)
 {
    const size_t minCapacity  = p_stack->minCapacity;
@@ -499,7 +384,7 @@ static int stack_resize(Stack *const p_stack, const char operation, bitmask_t *c
    
    if (operation == '+')
    {
-      if (prevSize == STK_MAX_CAPACITY)
+      if (prevSize == STK_MAX_CAPACITY_)
       {
          *p_bitmask |= StackDetails::FULL;
          return 1;
@@ -535,9 +420,59 @@ static int stack_resize(Stack *const p_stack, const char operation, bitmask_t *c
    p_stack->size     = newSize;
    p_stack->capacity = newCapacity;
       
-   return storage_update(p_stack->capacity, p_stack->size, &p_stack->storage, &p_stack->bytes, p_bitmask);
+   return storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size,  p_bitmask);
 }
 
+static int stack_size_increase(Stack *const p_stack, bitmask_t *const p_bitmask)
+{
+   if (p_stack->size == STK_MAX_CAPACITY_)
+   {
+      *p_bitmask |= StackDetails::FULL;
+      return 1;
+   }
+   
+   const size_t prevCapacity = p_stack->capacity;
+   const size_t newSize      = p_stack->size + 1;
+   size_t       newCapacity  = 0;
+   
+   if (prevCapacity == 0)
+      newCapacity = 2;
+   else if (newSize <= prevCapacity)
+      newCapacity = prevCapacity;
+   else
+      newCapacity = prevCapacity * 2;
+   
+   p_stack->size     = newSize;
+   p_stack->capacity = newCapacity;
+   
+   return storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, p_bitmask);
+}
+
+static int stack_size_decrease(Stack *const p_stack, bitmask_t *const p_bitmask)
+{
+   if (p_stack->size == 0)
+   {
+      *p_bitmask |= StackDetails::EMPTY;
+      return 1;
+   }
+   
+   const size_t minCapacity  = p_stack->minCapacity;
+   const size_t prevCapacity = p_stack->capacity;
+   const size_t newSize      = p_stack->size - 1;
+   size_t       newCapacity  = 0;
+   
+   if (newSize <= minCapacity)
+      newCapacity = minCapacity;
+   else if (newSize * 2 <= prevCapacity && prevCapacity >= 4) //! opt
+      newCapacity = prevCapacity / 2; //! opt
+   else
+      newCapacity = prevCapacity;
+   
+   p_stack->size     = newSize;
+   p_stack->capacity = newCapacity;
+   
+   return storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, p_bitmask);
+}
 
 static int stack_inspector(const Stack *const p_stack, bitmask_t *const p_bitmask) {
 
@@ -589,11 +524,11 @@ static int stack_inspector(const Stack *const p_stack, bitmask_t *const p_bitmas
    return 0;
 }
 
-
+#ifndef STK_PRODUCTION
 bitmask_t stack_init(Stack *const p_stack, const size_t userMinCapacity)
 {
    bitmask_t bitmask = 0;
-   
+
    if (p_stack == nullptr) {
       return bitmask | StackStatementDetails::STACK_NULLPTR;
    }
@@ -603,35 +538,34 @@ bitmask_t stack_init(Stack *const p_stack, const size_t userMinCapacity)
       return bitmask | StackStatementDetails::REINITIALIZATION;
    }
 #endif
-   
+
    size_t minCapacity = 0;
-   
+
    if (calc_min_capacity(userMinCapacity, &minCapacity, &bitmask))
       return bitmask;
-   
+
    p_stack->minCapacity = minCapacity;
    p_stack->capacity    = minCapacity;
    p_stack->size        = 0;
    p_stack->bytes       = 0;
    p_stack->storage     = nullptr;
-   
+
 #ifdef STK_CANARY_PROTECT
    p_stack->leftCanary  = STK_CANARY;
    p_stack->rightCanary = STK_CANARY;
 #endif
-   
-   storage_update(p_stack->capacity, p_stack->size, &p_stack->storage, &p_stack->bytes, &bitmask);
+
+   storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, &bitmask);
 
 #ifdef STK_HASH_PROTECT
    p_stack->hash = 0;
-   
+
    if (calc_stack_hash(p_stack, &p_stack->hash))
       bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
 #endif
-   
+
    return bitmask;
 }
-
 
 bitmask_t stack_push(Stack *const p_stack, const element_t element)
 {
@@ -645,7 +579,7 @@ bitmask_t stack_push(Stack *const p_stack, const element_t element)
       return bitmask;
 #endif
    
-   if (stack_resize(p_stack, '+', &bitmask) == 0)
+   if (stack_size_increase(p_stack, &bitmask) == 0)
       *(element_t *)find_lastElement(p_stack->storage, p_stack->size) = element;
 
 #ifdef STK_HASH_PROTECT
@@ -658,7 +592,6 @@ bitmask_t stack_push(Stack *const p_stack, const element_t element)
 
    return bitmask;
 }
-
 
 bitmask_t stack_pop(Stack *const p_stack, element_t *const p_output)
 {
@@ -680,7 +613,7 @@ bitmask_t stack_pop(Stack *const p_stack, element_t *const p_output)
    
    *p_output = *(element_t *)find_lastElement(p_stack->storage, p_stack->size);
    
-   stack_resize(p_stack, '-', &bitmask);
+   stack_size_decrease(p_stack, &bitmask);
 
 #ifdef STK_HASH_PROTECT
    if (calc_stack_hash(p_stack, &p_stack->hash))
@@ -698,13 +631,13 @@ void stack_destroy(Stack *const p_stack)
    if (p_stack != nullptr)
    {
       free(p_stack->storage);
-   
+      
       p_stack->size          = 0;
       p_stack->capacity      = 0;
       p_stack->minCapacity   = 0;
-      p_stack->storage       = nullptr;
       p_stack->bytes         = 0;
-
+      p_stack->storage       = nullptr;
+      
 #ifdef STK_CANARY_PROTECT
       p_stack->leftCanary    = 0;
       p_stack->rightCanary   = 0;
@@ -715,4 +648,6 @@ void stack_destroy(Stack *const p_stack)
 #endif
    }
 }
+#endif
+
 
