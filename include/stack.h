@@ -75,7 +75,11 @@ struct Stack
    size_t         size;
    size_t         capacity;
    size_t         minCapacity;
+   
+#ifdef STK_CANARY_PROTECT
    size_t         bytes;
+#endif
+   
    void          *storage;
 
 #ifdef STK_HASH_PROTECT

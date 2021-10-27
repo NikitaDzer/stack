@@ -76,13 +76,17 @@ void stack_dump(const Stack *const p_stack, const char *const file, const int li
           "Min capacity:          %zu\n"
           "Capacity:              %zu\n"
           "Size:                  %zu\n"
+          #ifdef STK_CANARY_PROTECT
           "Bytes:                 %zu\n"
+          #endif
           "Storage address:       %#p\n",
           p_stack,
           p_stack->minCapacity,
           p_stack->capacity,
           p_stack->size,
+          #ifdef STK_CANARY_PROTECT
           p_stack->bytes,
+          #endif
           p_stack->storage);
 
 #ifdef STK_CANARY_PROTECT
