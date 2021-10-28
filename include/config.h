@@ -16,4 +16,8 @@ typedef int stk_element_t;
 const size_t STK_MIN_CAPACITY = 2;
 const size_t STK_MAX_CAPACITY = (SIZE_MAX >> 1) + 1;
 
+#ifdef    STK_DEBUG
+const char logfile_path[] = "../log.txt";
+#endif // STK_DEBUG
+
 #endif // STACK_CONFIG_H

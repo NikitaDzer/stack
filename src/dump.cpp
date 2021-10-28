@@ -66,7 +66,7 @@ static int calc_stack_hash(const Stack *const p_stack, hash_t *const p_hash)
    memcpy((char *)data + sizeof(Stack), p_stack->storage, bytes);
    memset((char *)data + ((char *)&p_stack->hash - (char *)p_stack), 0x00, sizeof(hash_t));
    
-   *p_hash = quickHash(data, sizeof(Stack) + bytes);
+   *p_hash = qhash(data, sizeof(Stack) + bytes);
    
    free(data);
    

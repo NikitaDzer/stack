@@ -82,28 +82,27 @@ void stack_destroy(Stack *const p_stack)
 }
 // --------------------------------  /export functions  --------------------------------
 #else
-
-// --------------------------------  includes   --------------------------------
+// --------------------------------  includes  -------------------------------------------------------------------------
 #include <cstdio>
 #include <cstring>
 
 #ifdef STK_HASH_PROTECT
 #include "../include/hash.h"
 #endif
-// -------------------------------- /includes  --------------------------------
+// -------------------------------- /includes  -------------------------------------------------------------------------
 
 
-// --------------------------------  typedefs  --------------------------------
+// --------------------------------  typedefs  -------------------------------------------------------------------------
 typedef stk_bitmask_t bitmask_t;
 typedef uint_fast8_t  error_t;
 
 #ifdef STK_CANARY_PROTECT
 typedef stk_canary_t  canary_t;
 #endif
-// -------------------------------- /typedefs  --------------------------------
+// -------------------------------- /typedefs  -------------------------------------------------------------------------
 
 
-// --------------------------------  static functions  --------------------------------
+// --------------------------------  static functions  -----------------------------------------------------------------
 static inline void* find_lastElement(const void *const storage, const size_t size)
 {
    if (storage == nullptr || size == 0)
@@ -497,14 +496,14 @@ static error_t stack_size_decrease(Stack *const p_stack, bitmask_t *const p_bitm
    return storage_update(&p_stack->storage, p_stack->capacity, p_stack->size,  p_bitmask);
 #endif // STK_CANARY_PROTECT
 }
-// -------------------------------- /static functions  --------------------------------
+// -------------------------------- /static functions  -----------------------------------------------------------------
 
 
-// --------------------------------  export functions  --------------------------------
+// --------------------------------  export functions  -----------------------------------------------------------------
 bitmask_t stack_init(Stack *const p_stack, const size_t userMinCapacity)
 {
    bitmask_t bitmask = 0;
-
+   
    if (p_stack == nullptr) {
       return bitmask | StackStatementDetails::STACK_NULLPTR;
    }
@@ -627,6 +626,5 @@ void stack_destroy(Stack *const p_stack)
 #endif // STK_HASH_PROTECT
    }
 }
-// -------------------------------- /export functions  --------------------------------
+// -------------------------------- /export functions  -----------------------------------------------------------------
 #endif
-
