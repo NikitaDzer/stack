@@ -8,7 +8,7 @@
 
 //#define STK_UNPROTECT
 #define STK_CANARY_PROTECT
-//#define STK_HASH_PROTECT
+#define STK_HASH_PROTECT
 
 #define STK_ELEMENT_SPECIFIER "d"
 typedef int stk_element_t;

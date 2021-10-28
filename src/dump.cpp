@@ -1,8 +1,11 @@
+
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include "../include/dump.h"
 
+#ifndef STK_PRODUCTION
 typedef stk_element_t element_t;
 
 #ifdef STK_CANARY_PROTECT
@@ -48,7 +51,11 @@ static inline void* find_lastElement(const void *const storage, const size_t siz
 #ifdef STK_HASH_PROTECT
 static int calc_stack_hash(const Stack *const p_stack, hash_t *const p_hash)
 {
+#ifdef STK_CANARY_PROTECT
    const size_t        bytes = p_stack->bytes;
+#else
+   const size_t        bytes = sizeof(element_t) * p_stack->capacity;
+#endif
    void         *const data  = malloc(sizeof(Stack) + bytes);
    
    if (data == nullptr) {
@@ -151,3 +158,4 @@ void stack_dump(const Stack *const p_stack, const char *const file, const int li
    }
    printf("=======================================================\n");
 }
+#endif

@@ -3,9 +3,22 @@
 
 #include "config.h"
 #include <cstdio>
+#include <valarray>
+
+#ifdef STK_ELEMENT_SPECIFIER
+#define SPECIFIER STK_ELEMENT_SPECIFIER
+#endif
+
+const size_t STK_MIN_CAPACITY_ = (STK_MIN_CAPACITY & (STK_MIN_CAPACITY - 1)) == 0
+                                 ? STK_MIN_CAPACITY
+                                 : pow(2, ceil(log(STK_MIN_CAPACITY) / log(2)));
+const size_t STK_MAX_CAPACITY_ = STK_MIN_CAPACITY > STK_MAX_CAPACITY
+                                 ? STK_MIN_CAPACITY_
+                                 : STK_MAX_CAPACITY > (SIZE_MAX >> 1)
+                                   ? (SIZE_MAX >> 1) + 1
+                                   : pow(2, ceil(log(STK_MAX_CAPACITY) / log(2)));
 
 #ifdef STK_PRODUCTION
-
 #undef STK_UNPROTECT
 #undef STK_CANARY_PROTECT
 #undef STK_HASH_PROTECT
@@ -26,12 +39,10 @@ void stack_push(Stack *const p_stack, const stk_element_t element);
 void stack_pop(Stack *const p_stack, stk_element_t *const p_output);
 
 void stack_destroy(Stack *const p_stack);
-
 #else
 
 #include <cstddef>
 #include <cstdint>
-#include <valarray>
 
 #ifdef STK_HASH_PROTECT
 #include "hash.h"
@@ -45,26 +56,12 @@ void stack_destroy(Stack *const p_stack);
 typedef size_t stk_bitmask_t;
 
 const char   STK_POISON        = 0x66;
-const size_t STK_MIN_CAPACITY_ = (STK_MIN_CAPACITY & (STK_MIN_CAPACITY - 1)) == 0
-                                 ? STK_MIN_CAPACITY
-                                 : pow(2, ceil(log(STK_MIN_CAPACITY) / log(2)));
-const size_t STK_MAX_CAPACITY_ = STK_MIN_CAPACITY > STK_MAX_CAPACITY
-                                 ? STK_MIN_CAPACITY_
-                                 : STK_MAX_CAPACITY > (SIZE_MAX >> 1)
-                                    ? (SIZE_MAX >> 1) + 1
-                                    : pow(2, ceil(log(STK_MAX_CAPACITY) / log(2)));
 
 #ifdef STK_CANARY_PROTECT
 typedef size_t stk_canary_t;
 
 const stk_canary_t  STK_CANARY = 0xD1AB011CB13D;
 #endif // STK_CANARY_PROTECT
-
-#ifndef SPECIFIER
-   #ifdef STK_ELEMENT_SPECIFIER
-      #define SPECIFIER STK_ELEMENT_SPECIFIER
-   #endif
-#endif
 
 struct Stack
 {

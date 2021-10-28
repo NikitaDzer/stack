@@ -63,3 +63,154 @@ void test_hash(const size_t input_size, const size_t tests_number)
       printf("Unique hash_sums: %zu\n", sorted_size);
 }
 
+
+int print_data_hard(const void* const data, const size_t data_bytes,
+                    const size_t _columns = 4, const size_t _cell_bytes = 4, const size_t _tabs = 0)
+{
+   if (data && data_bytes)
+   {
+//      printf("BYTES: %zu", data_bytes);
+      
+      const size_t        MAX_TABS = 6;
+      const size_t        MAX_COLUMNS = 8;
+      const size_t        MAX_CELL_BYTES = 6;
+      
+      const size_t tabs = _tabs <= MAX_TABS ? _tabs : MAX_TABS;
+      char         *const tabs_str = (char *)calloc(tabs + 1, sizeof(char)); /// ?error processing
+
+//      if (tabs_str == nullptr)
+//         return 1;
+      
+      const size_t columns = _columns <= MAX_COLUMNS ? _columns : MAX_COLUMNS;
+      const size_t cell_bytes = _cell_bytes <= MAX_CELL_BYTES ? _cell_bytes : MAX_CELL_BYTES;
+      const size_t fullRows  = data_bytes / (columns * cell_bytes);
+      const size_t fullCells = data_bytes / cell_bytes;
+      const size_t rows = fullRows + (data_bytes % (columns * cell_bytes) != 0);
+      const size_t cells = fullCells + (data_bytes % cell_bytes != 0);
+      size_t       row       = 0;
+      size_t       cell      = 0;
+      size_t       byte      = 0;
+      size_t       iterator  = 0;
+      
+      for (size_t i = 0; i < tabs; i++)
+         tabs_str[i] = '\t';
+      tabs_str[tabs] = '\0';
+      
+      printf("\n%s-------------------------------------------------------------\n", tabs_str);
+      
+      for (; row < fullRows; row++)
+      {
+         printf("%s", tabs_str);
+         
+         for (iterator = 0; iterator < columns; cell++, iterator++)
+            printf("   %02zx - %02zx \t", cell * cell_bytes, (cell + 1) * cell_bytes - 1);
+         
+         printf("\n%s|", tabs_str);
+         
+         for (iterator = 0; iterator < cell_bytes * columns; byte++, iterator++)
+         {
+            if (iterator % 4 == 0 && iterator)
+               printf("\t|");
+            
+            printf("%02x|", *((unsigned char *)data + byte));
+         }
+         
+         if (row + 1 != rows)
+            printf("\n%s-------------------------------------------------------------\n", tabs_str);
+      }
+      
+      if (fullRows != rows)
+      {
+         printf("%s", tabs_str);
+         
+         for (; cell < fullCells; cell++)
+            printf("   %02zx - %02zx \t", cell * cell_bytes, (cell + 1) * cell_bytes - 1);
+         
+         if (fullCells != cells)
+         {
+            if (data_bytes - byte == 1)
+               printf("   %02zx", byte);
+            else
+            {
+               printf("   %02zx - %02zx", cell * cell_bytes, data_bytes - 1);
+            }
+         }
+         
+         printf("\n%s|", tabs_str);
+         
+         for (iterator = 0; byte < data_bytes; byte++)
+         {
+            if (byte % 4 == 0 && iterator++)
+               printf("\t|");
+            
+            printf("%02x|", *((unsigned char *)data + byte));
+         }
+      }
+      
+      printf("\n%s-------------------------------------------------------------\n", tabs_str);
+   }
+}
+
+void print_data(const void* const data, const size_t data_bytes,
+                const size_t _columns = 8, const size_t _cell_bytes = 4, const size_t _tabs = 0)
+{
+   if (data && data_bytes)
+   {
+//      printf("BYTES: %zu", data_bytes);
+      
+      const size_t        MAX_TABS = 6;
+      const size_t        MAX_COLUMNS = 8;
+      const size_t        MAX_CELL_BYTES = 6;
+      
+      const size_t tabs = _tabs <= MAX_TABS ? _tabs : MAX_TABS;
+      char         *const tabs_str = (char *)calloc(tabs + 1, sizeof(char)); /// ?error processing
+      
+      const size_t columns = _columns <= MAX_COLUMNS ? _columns : MAX_COLUMNS;
+      const size_t cell_bytes = _cell_bytes <= MAX_CELL_BYTES ? _cell_bytes : MAX_CELL_BYTES;
+      const size_t fullRows  = data_bytes / (columns * cell_bytes);
+      const size_t fullCells = data_bytes / cell_bytes;
+      const size_t rows = fullRows + (data_bytes % (columns * cell_bytes) != 0);
+      const size_t cells = fullCells + (data_bytes % cell_bytes != 0);
+      size_t       row       = 0;
+      size_t       cell      = 0;
+      size_t       byte      = 0;
+      size_t       iterator  = 0;
+      
+      for (size_t i = 0; i < tabs; i++)
+         tabs_str[i] = '\t';
+      tabs_str[tabs] = '\0';
+      
+      printf("\n%s-----------------------------------------------------------------------------------------\n", tabs_str);
+      
+      for (; row < fullRows; row++)
+      {
+         printf("%s|", tabs_str);
+         
+         for (iterator = 0; iterator < cell_bytes * columns; byte++, iterator++)
+         {
+            if (iterator % 4 == 0 && iterator)
+               printf(" |");
+            
+            printf("%02x|", *((unsigned char *)data + byte));
+         }
+         
+         if (row + 1 != rows)
+            printf("\n%s", tabs_str);
+      }
+      
+      if (fullRows != rows)
+      {
+         printf("%s|", tabs_str);
+         
+         for (iterator = 0; byte < data_bytes; byte++)
+         {
+            if (byte % 4 == 0 && iterator++)
+               printf(" |");
+            
+            printf("%02x|", *((unsigned char *)data + byte));
+         }
+      }
+      
+      printf("\n%s-----------------------------------------------------------------------------------------\n", tabs_str);
+   }
+}

@@ -5,6 +5,6 @@
 
 typedef size_t hash_t;
 
-hash_t quickHash(const void *const data, const size_t data_bytes);
+hash_t qhash(const void *const data, const size_t data_bytes);
 
 #endif // STACK_HASH_H
