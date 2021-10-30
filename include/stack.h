@@ -18,6 +18,8 @@ const size_t STK_MAX_CAPACITY_ = STK_MIN_CAPACITY > STK_MAX_CAPACITY
                                    ? (SIZE_MAX >> 1) + 1
                                    : pow(2, ceil(log(STK_MAX_CAPACITY) / log(2)));
 
+struct Stack;
+
 #ifdef    STK_PRODUCTION
 #undef STK_UNPROTECT
 #undef STK_CANARY_PROTECT
@@ -48,6 +50,10 @@ void stack_destroy(Stack *const p_stack);
 // --------------------------------  includes  -------------------------------------------------------------------------
 #include <cstddef>
 #include <cstdint>
+
+typedef size_t stk_bitmask_t;
+
+#include "dump.h"
 
 #ifdef    STK_HASH_PROTECT
 #include "hash.h"
@@ -89,7 +95,7 @@ enum StackStatementDetails
    ERROR                          = 1 << 16,
    STACK_NULLPTR                  = 1 << 17,
    OUTPUT_NULLPTR                 = 1 << 18,
-   REINITIALIZATION               = 1 << 19,
+   CANDIDATE_NOT_CLEAN            = 1 << 19,
    WRONG_MIN_CAPACITY             = 1 << 20,
    STORAGE_NOT_UPDATED            = 1 << 21,
    STATEMENT_WITH_BANNED_STACK    = 1 << 22,
@@ -129,8 +135,28 @@ struct Stack
 
 
 // --------------------------------  export functions  -----------------------------------------------------------------
-void stack_dump(const Stack *const p_stack, const char *const file, const int line );
+#ifdef STK_DEBUG
+#define stack_init(p_stack, minCapacity)                                                         \
+        stack_log((p_stack), CALLER_STACK_INIT, __FILE__, __LINE__, stack_init_((p_stack), (minCapacity)), (minCapacity))
 
+#define stack_push(p_stack, element)                                                             \
+        stack_log((p_stack), CALLER_STACK_PUSH, __FILE__, __LINE__, stack_push_((p_stack), (element)), (element))
+        
+#define stack_pop(p_stack, p_output)                                                              \
+        stack_log((p_stack), CALLER_STACK_POP, __FILE__, __LINE__, stack_pop_((p_stack), (p_output)), (p_output), (#p_output))
+        
+#define stack_destroy(p_stack)                                                                   \
+        stack_destroy_((p_stack)),                                                               \
+        stack_log((p_stack), CALLER_STACK_DESTROY, __FILE__, __LINE__, 0)
+
+stk_bitmask_t stack_init_(Stack *const p_stack, const size_t minCapacity = STK_MIN_CAPACITY_);
+
+stk_bitmask_t stack_push_(Stack *const p_stack, const stk_element_t element);
+
+stk_bitmask_t stack_pop_(Stack *const p_stack, stk_element_t *const p_output);
+
+void stack_destroy_(Stack *const p_stack);
+#else
 stk_bitmask_t stack_init(Stack *const p_stack, const size_t minCapacity = STK_MIN_CAPACITY_);
 
 stk_bitmask_t stack_push(Stack *const p_stack, const stk_element_t element);
@@ -138,6 +164,7 @@ stk_bitmask_t stack_push(Stack *const p_stack, const stk_element_t element);
 stk_bitmask_t stack_pop(Stack *const p_stack, stk_element_t *const p_output);
 
 void stack_destroy(Stack *const p_stack);
+#endif
 // -------------------------------- /export functions  -----------------------------------------------------------------
 #endif // STK_PRODUCTION
 #endif // STACK_H

@@ -259,14 +259,21 @@ static bool is_stack_initialized(const Stack *const p_stack)
 
 static error_t stack_inspect(const Stack *const p_stack, bitmask_t *const p_bitmask)
 {
+   if (p_stack->minCapacity >= 1 && p_stack->storage == nullptr)
+   {
+      *p_bitmask |= StackStatementDetails::STATEMENT_WITH_BANNED_STACK;
+   }
+   
 #ifdef STK_CANARY_PROTECT
    if (p_stack->leftCanary != STK_CANARY)
    {
+      *p_bitmask |= StackDetails::LEFT_CANARY_ATTACKED;
       *p_bitmask |= StackDetails::BANNED;
    }
    
    if (p_stack->rightCanary != STK_CANARY)
    {
+      *p_bitmask |= StackDetails::RIGHT_CANARY_ATTACKED;
       *p_bitmask |= StackDetails::BANNED;
    }
    
@@ -496,135 +503,159 @@ static error_t stack_size_decrease(Stack *const p_stack, bitmask_t *const p_bitm
    return storage_update(&p_stack->storage, p_stack->capacity, p_stack->size,  p_bitmask);
 #endif // STK_CANARY_PROTECT
 }
+
+bitmask_t stack_init_(Stack *const p_stack, const size_t userMinCapacity)
+{
+  bitmask_t bitmask = 0;
+  
+  if (p_stack == nullptr) {
+    return bitmask | StackStatementDetails::STACK_NULLPTR;
+  }
+
+#ifndef   STK_UNPROTECT
+  if (is_stack_initialized(p_stack)) {
+    return bitmask | StackStatementDetails::CANDIDATE_NOT_CLEAN;
+  }
+#endif // STK_UNPROTECT
+  
+  size_t minCapacity = 0;
+  
+  if (calc_min_capacity(userMinCapacity, &minCapacity, &bitmask))
+    return bitmask;
+  
+  p_stack->minCapacity = minCapacity;
+  p_stack->capacity    = minCapacity;
+  p_stack->size        = 0;
+  p_stack->storage     = nullptr;
+
+#ifdef    STK_CANARY_PROTECT
+  p_stack->leftCanary  = STK_CANARY;
+  p_stack->bytes       = 0;
+  p_stack->rightCanary = STK_CANARY;
+  
+  storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, &bitmask);
+#else
+  storage_update(&p_stack->storage, p_stack->capacity, p_stack->size, &bitmask);
+#endif // STK_CANARY_PROTECT
+
+
+#ifdef    STK_HASH_PROTECT
+  p_stack->hash = 0;
+  
+  if (calc_stack_hash(p_stack, &p_stack->hash))
+    bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
+#endif // STK_HASH_PROTECT
+  
+  return bitmask;
+}
+
+bitmask_t stack_push_(Stack *const p_stack, const element_t element)
+{
+  bitmask_t bitmask = 0;
+  
+  if (p_stack == nullptr)
+    return bitmask | StackStatementDetails::STACK_NULLPTR;
+
+#ifndef   STK_UNPROTECT
+  if (stack_inspect(p_stack, &bitmask))
+    return bitmask;
+#endif // STK_UNPROTECT
+  
+  if (stack_size_increase(p_stack, &bitmask) == 0)
+    *(element_t *)find_lastElement(p_stack->storage, p_stack->size) = element;
+
+#ifdef    STK_HASH_PROTECT
+  if (calc_stack_hash(p_stack, &p_stack->hash))
+  {
+    bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
+    bitmask |= StackDetails::BANNED;
+  }
+#endif // STK_HASH_PROTECT
+  
+  return bitmask;
+}
+
+bitmask_t stack_pop_(Stack *const p_stack, element_t *const p_output)
+{
+  bitmask_t bitmask = 0;
+  
+  if (p_stack == nullptr)
+    bitmask |= StackStatementDetails::STACK_NULLPTR;
+  
+  if (p_output == nullptr)
+    bitmask |= StackStatementDetails::OUTPUT_NULLPTR;
+  
+  if (bitmask != 0)
+    return bitmask;
+
+#ifndef   STK_UNPROTECT
+  if (stack_inspect(p_stack, &bitmask))
+    return bitmask;
+#endif // STK_UNPROTECT
+  
+  *p_output = *(element_t *)find_lastElement(p_stack->storage, p_stack->size);
+  
+  stack_size_decrease(p_stack, &bitmask);
+
+#ifdef    STK_HASH_PROTECT
+  if (calc_stack_hash(p_stack, &p_stack->hash))
+  {
+    bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
+    bitmask |= StackDetails::BANNED;
+  }
+#endif // STK_HASH_PROTECT
+  
+  return bitmask;
+}
+
+void stack_destroy_(Stack *const p_stack)
+{
+  if (p_stack != nullptr)
+  {
+    free(p_stack->storage);
+    
+    p_stack->size          = 0;
+    p_stack->capacity      = 0;
+    p_stack->minCapacity   = 0;
+    p_stack->storage       = nullptr;
+
+#ifdef    STK_CANARY_PROTECT
+    p_stack->leftCanary    = 0;
+    p_stack->bytes         = 0;
+    p_stack->rightCanary   = 0;
+#endif // STK_CANARY_PROTECT
+
+#ifdef    STK_HASH_PROTECT
+    p_stack->hash          = 0;
+#endif // STK_HASH_PROTECT
+  }
+}
 // -------------------------------- /static functions  -----------------------------------------------------------------
 
 
 // --------------------------------  export functions  -----------------------------------------------------------------
+#ifdef    STK_DEBUG
+
+#else
 bitmask_t stack_init(Stack *const p_stack, const size_t userMinCapacity)
 {
-   bitmask_t bitmask = 0;
-   
-   if (p_stack == nullptr) {
-      return bitmask | StackStatementDetails::STACK_NULLPTR;
-   }
-
-#ifndef   STK_UNPROTECT
-   if (is_stack_initialized(p_stack)) {
-      return bitmask | StackStatementDetails::REINITIALIZATION;
-   }
-#endif // STK_UNPROTECT
-
-   size_t minCapacity = 0;
-
-   if (calc_min_capacity(userMinCapacity, &minCapacity, &bitmask))
-      return bitmask;
-
-   p_stack->minCapacity = minCapacity;
-   p_stack->capacity    = minCapacity;
-   p_stack->size        = 0;
-   p_stack->storage     = nullptr;
-
-#ifdef    STK_CANARY_PROTECT
-   p_stack->leftCanary  = STK_CANARY;
-   p_stack->bytes       = 0;
-   p_stack->rightCanary = STK_CANARY;
-   
-   storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, &bitmask);
-#else
-   storage_update(&p_stack->storage, p_stack->capacity, p_stack->size, &bitmask);
-#endif // STK_CANARY_PROTECT
-
-
-#ifdef    STK_HASH_PROTECT
-   p_stack->hash = 0;
-
-   if (calc_stack_hash(p_stack, &p_stack->hash))
-      bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-#endif // STK_HASH_PROTECT
-
-   return bitmask;
+   return stack_init_(p_stack, userMinCapacity);
 }
 
 bitmask_t stack_push(Stack *const p_stack, const element_t element)
 {
-   bitmask_t bitmask = 0;
-
-   if (p_stack == nullptr)
-      return bitmask | StackStatementDetails::STACK_NULLPTR;
-
-#ifndef   STK_UNPROTECT
-   if (stack_inspect(p_stack, &bitmask))
-      return bitmask;
-#endif // STK_UNPROTECT
-   
-   if (stack_size_increase(p_stack, &bitmask) == 0)
-      *(element_t *)find_lastElement(p_stack->storage, p_stack->size) = element;
-
-#ifdef    STK_HASH_PROTECT
-   if (calc_stack_hash(p_stack, &p_stack->hash))
-   {
-      bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-      bitmask |= StackDetails::BANNED;
-   }
-#endif // STK_HASH_PROTECT
-
-   return bitmask;
+   return stack_push_(p_stack, element);
 }
 
 bitmask_t stack_pop(Stack *const p_stack, element_t *const p_output)
 {
-   bitmask_t bitmask = 0;
-   
-   if (p_stack == nullptr)
-      bitmask |= StackStatementDetails::STACK_NULLPTR;
-   
-   if (p_output == nullptr)
-      bitmask |= StackStatementDetails::OUTPUT_NULLPTR;
-   
-   if (bitmask != 0)
-      return bitmask;
-   
-#ifndef   STK_UNPROTECT
-   if (stack_inspect(p_stack, &bitmask))
-      return bitmask;
-#endif // STK_UNPROTECT
-   
-   *p_output = *(element_t *)find_lastElement(p_stack->storage, p_stack->size);
-   
-   stack_size_decrease(p_stack, &bitmask);
-
-#ifdef    STK_HASH_PROTECT
-   if (calc_stack_hash(p_stack, &p_stack->hash))
-   {
-      bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-      bitmask |= StackDetails::BANNED;
-   }
-#endif // STK_HASH_PROTECT
-
-   return bitmask;
+   return stack_pop_(p_stack, p_output);
 }
 
 void stack_destroy(Stack *const p_stack)
 {
-   if (p_stack != nullptr)
-   {
-      free(p_stack->storage);
-      
-      p_stack->size          = 0;
-      p_stack->capacity      = 0;
-      p_stack->minCapacity   = 0;
-      p_stack->storage       = nullptr;
-      
-#ifdef    STK_CANARY_PROTECT
-      p_stack->leftCanary    = 0;
-      p_stack->bytes         = 0;
-      p_stack->rightCanary   = 0;
-#endif // STK_CANARY_PROTECT
-
-#ifdef    STK_HASH_PROTECT
-      p_stack->hash          = 0;
-#endif // STK_HASH_PROTECT
-   }
+   stack_destroy_(p_stack);
 }
+#endif // STK_DEBUG
 // -------------------------------- /export functions  -----------------------------------------------------------------
 #endif
