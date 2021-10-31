@@ -31,16 +31,15 @@ int main()
    
 //
    stack_push(&stack, 200);
-   stack.size = 7;
-   stack_push(&stack, 300);
-   stack_push(&stack, 300);
    stack_push(&stack, 300);
    
    
    
    stk_element_t i = 0;
    
-//   stack_pop(&stack, &i);
+   stack_pop(&stack, &i);
+   stack_pop(&stack, &i);
+   stack_pop(&stack, &i);
    
 //   printf("%" SPECIFIER, i);
    

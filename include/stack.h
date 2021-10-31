@@ -80,7 +80,6 @@ const stk_canary_t STK_CANARY = 0xD1AB011CB13D;
 enum StackDetails
 {
    HEALTHY                        = 0 << 0,
-   BANNED                         = 1 << 0,
    EMPTY                          = 1 << 1,
    FULL                           = 1 << 2,
    LEFT_CANARY_ATTACKED           = 1 << 3,
@@ -95,13 +94,15 @@ enum StackStatementDetails
    ERROR                          = 1 << 16,
    STACK_NULLPTR                  = 1 << 17,
    OUTPUT_NULLPTR                 = 1 << 18,
-   CANDIDATE_NOT_CLEAN            = 1 << 19,
+   CANDIDATE_NOT_CLEAR            = 1 << 19,
    WRONG_MIN_CAPACITY             = 1 << 20,
    STORAGE_NOT_UPDATED            = 1 << 21,
    STATEMENT_WITH_BANNED_STACK    = 1 << 22,
    UNINITIALIZED_STACK            = 1 << 23,
    MEMORY_NOT_ALLOCATED           = 1 << 24,
    HASH_NOT_VERIFIED              = 1 << 25,
+   REINITIALIZATION               = 1 << 26,
+   STATEMENT_WITH_CANDIDATE_STACK = 1 << 27,
 };
 // -------------------------------- /constants  ------------------------------------------------------------------------
 

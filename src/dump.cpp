@@ -30,7 +30,7 @@ struct Dump
 static const size_t MAX_FORMATTED_STRING_SIZE = 1024 - 1;
 static size_t dumps_counter = 0;
 static Dump  *dumps         = nullptr;
-static FILE  *logfile       = fopen(logfile_path, "w");
+static FILE  *logfile       = fopen(STK_LOGFILE_PATH, "w");
 static char  templog[MAX_FORMATTED_STRING_SIZE + 1] = "";
 
 #ifdef STK_CANARY_PROTECT
@@ -187,16 +187,14 @@ static int process_init(Dump *const p_dump, const char *const filename, const lo
       {
          dump_update(p_dump, "Init fail (%s, %ld)\n", filename, line);
          
-         if (bitmask & StackStatementDetails::CANDIDATE_NOT_CLEAN)
+         if (bitmask & StackStatementDetails::CANDIDATE_NOT_CLEAR)
          {
-            if (p_dump->init_line >= 0)
-            {
-               dump_update(p_dump, "- stack has already been inited at line (%ld)\n", p_dump->init_line);
-            }
-            else
-            {
-               dump_update(p_dump, "- candidate stack isn't clean\n");
-            }
+            dump_update(p_dump, "- candidate stack isn't clean\n");
+         }
+         
+         if (bitmask & StackStatementDetails::REINITIALIZATION)
+         {
+            dump_update(p_dump, "- stack has already been inited at line (%ld)\n", p_dump->init_line);
          }
          
          if (bitmask & StackStatementDetails::WRONG_MIN_CAPACITY)
@@ -371,9 +369,9 @@ static int process_pop(Dump *const p_dump, const char *const filename, const lon
          if (bitmask & StackDetails::EMPTY)
          {
             dump_update(p_dump,
-                        "Pop nothing to (%s) with address (%p) fail (%s, %ld)\n",
-                        "- stack is empty",
-                        *p_output, va_arg(ap, char *), p_output, filename, line);
+                        "Pop nothing to (%s) with address (%p) fail (%s, %ld)\n"
+                        "- stack is empty\n",
+                        va_arg(ap, char *), p_output, filename, line);
          }
          else
          {

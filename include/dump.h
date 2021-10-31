@@ -4,6 +4,7 @@
 #include "stack.h"
 
 #ifdef    STK_DEBUG
+
 enum StackLogCallers
 {
    CALLER_NOONE,

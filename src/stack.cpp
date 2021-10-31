@@ -85,10 +85,6 @@ void stack_destroy(Stack *const p_stack)
 // --------------------------------  includes  -------------------------------------------------------------------------
 #include <cstdio>
 #include <cstring>
-
-#ifdef STK_HASH_PROTECT
-#include "../include/hash.h"
-#endif
 // -------------------------------- /includes  -------------------------------------------------------------------------
 
 
@@ -100,6 +96,32 @@ typedef uint_fast8_t  error_t;
 typedef stk_canary_t  canary_t;
 #endif
 // -------------------------------- /typedefs  -------------------------------------------------------------------------
+
+
+// --------------------------------  constants  ------------------------------------------------------------------------
+enum StackStatus
+{
+  CANDIDATE,
+  INITIALIZED,
+  BANNED
+};
+// -------------------------------- /constants  ------------------------------------------------------------------------
+
+
+// --------------------------------  structures  -----------------------------------------------------------------------
+struct StackTracker
+{
+   const Stack* p_stack;
+   StackStatus   status;
+};
+// -------------------------------- /structures  -----------------------------------------------------------------------
+
+
+// --------------------------------  static variables  -----------------------------------------------------------------
+static StackTracker  staticTrackers[STK_STATIC_TRACKERS_NUMBER] = {};
+static StackTracker* heapTrackers                               = nullptr;
+static size_t        trackers_counter                           = 0;
+// -------------------------------- /static variables  -----------------------------------------------------------------
 
 
 // --------------------------------  static functions  -----------------------------------------------------------------
@@ -129,6 +151,62 @@ static inline void* find_storage_rightCanary(const void *const storage, const si
    return (void *)((char *)storage + bytes - sizeof(canary_t));
 }
 #endif // STK_CANARY_PROTECT
+
+static StackTracker* find_tracker(const Stack *const p_stack)
+{
+   if (trackers_counter > STK_STATIC_TRACKERS_NUMBER)
+   {
+      size_t index = 0;
+      
+      for (index = 0; index < STK_STATIC_TRACKERS_NUMBER; index++)
+         if (staticTrackers[index].p_stack == p_stack)
+            return (StackTracker *)staticTrackers + index;
+      
+      for (index = index; index < trackers_counter; index++)
+         if (heapTrackers[index - STK_STATIC_TRACKERS_NUMBER].p_stack == p_stack)
+            return (StackTracker *)heapTrackers + index - STK_STATIC_TRACKERS_NUMBER;
+   }
+   else
+   {
+      for (size_t index = 0; index < trackers_counter; index++)
+         if (staticTrackers[index].p_stack == p_stack)
+            return (StackTracker *)staticTrackers + index;
+   }
+   
+   return nullptr;
+}
+
+static StackTracker* create_tracker(const Stack *const p_stack)
+{
+   StackTracker *p_tracker = nullptr;
+ 
+   trackers_counter += 1;
+   
+   if (trackers_counter > STK_STATIC_TRACKERS_NUMBER)
+   {
+      heapTrackers = (StackTracker *)realloc(heapTrackers, sizeof(StackTracker) * trackers_counter);
+      p_tracker    = (StackTracker *)heapTrackers + trackers_counter - STK_STATIC_TRACKERS_NUMBER - 1;
+   }
+   else
+   {
+      p_tracker = (StackTracker *)staticTrackers + trackers_counter - 1;
+   }
+   
+   p_tracker->p_stack = p_stack;
+   p_tracker->status   = StackStatus::CANDIDATE;
+   
+   return p_tracker;
+}
+
+static StackTracker* get_tracker(const Stack *const p_stack)
+{
+   StackTracker* p_tracker = find_tracker(p_stack);
+   
+   if (p_tracker == nullptr)
+      p_tracker = create_tracker(p_stack);
+   
+   return p_tracker;
+}
 
 static size_t calc_storage_bytes(const size_t capacity)
 {
@@ -206,113 +284,158 @@ static error_t calc_stack_hash(const Stack *const p_stack, hash_t *const p_outpu
 #endif // STK_HASH_PROTECT
 
 #ifndef   STK_UNPROTECT
-static bool is_stack_initialized(const Stack *const p_stack)
+static bool is_candidate_clear(const Stack *const p_stack)
 {
-   if (p_stack->size != 0)
+   if (   p_stack->size != 0
+       || p_stack->capacity != 0
+       || p_stack->minCapacity != 0
+       || p_stack->storage != nullptr)
    {
-      return true;
+      return false;
    }
    
-   if (p_stack->capacity != 0)
+   #ifdef    STK_CANARY_PROTECT
+   if (   p_stack->bytes != 0
+       || p_stack->leftCanary != 0
+       || p_stack->rightCanary != 0)
    {
-      return true;
+      return false;
    }
-   
-   if (p_stack->minCapacity != 0)
-   {
-      return true;
-   }
-   
-   if (p_stack->storage != nullptr)
-   {
-      return true;
-   }
+   #endif // STK_CANARY_PROTECT
 
-
-#ifdef    STK_CANARY_PROTECT
-   if (p_stack->bytes != 0)
-   {
-      return true;
-   }
-   
-   if (p_stack->leftCanary != 0)
-   {
-      return true;
-   }
-   
-   if (p_stack->rightCanary != 0)
-   {
-      return true;
-   }
-#endif // STK_CANARY_PROTECT
-
-
-#ifdef    STK_HASH_PROTECT
+   #ifdef    STK_HASH_PROTECT
    if (p_stack->hash != 0)
    {
-      return true;
+      return false;
    }
-#endif // STK_HASH_PROTECT
+   #endif // STK_HASH_PROTECT
    
-   return false;
+   return true;
 }
 
-static error_t stack_inspect(const Stack *const p_stack, bitmask_t *const p_bitmask)
+static error_t candidate_inspect(const Stack *const p_stack, const StackStatus status, bitmask_t *const p_bitmask)
 {
-   if (p_stack->minCapacity >= 1 && p_stack->storage == nullptr)
+   switch (status)
    {
-      *p_bitmask |= StackStatementDetails::STATEMENT_WITH_BANNED_STACK;
-   }
-   
-#ifdef STK_CANARY_PROTECT
-   if (p_stack->leftCanary != STK_CANARY)
-   {
-      *p_bitmask |= StackDetails::LEFT_CANARY_ATTACKED;
-      *p_bitmask |= StackDetails::BANNED;
-   }
-   
-   if (p_stack->rightCanary != STK_CANARY)
-   {
-      *p_bitmask |= StackDetails::RIGHT_CANARY_ATTACKED;
-      *p_bitmask |= StackDetails::BANNED;
-   }
-   
-   if (p_stack->storage != nullptr)
-   {
-      if (*(canary_t *)find_storage_leftCanary(p_stack->storage) != STK_CANARY)
+      case StackStatus::CANDIDATE:
       {
-         *p_bitmask |= StackDetails::STORAGE_LEFT_CANARY_ATTACKED;
-         *p_bitmask |= StackDetails::BANNED;
+         if (/* if fields are not clear */
+                p_stack->size != 0
+             || p_stack->capacity != 0
+             || p_stack->minCapacity != 0
+             || p_stack->storage != nullptr
+             
+             #ifdef    STK_CANARY_PROTECT
+             || p_stack->bytes != 0
+             || p_stack->leftCanary != 0
+             || p_stack->rightCanary != 0
+             #endif // STK_CANARY_PROTECT
+
+             #ifdef    STK_HASH_PROTECT
+             || p_stack->hash != 0
+             #endif // STK_CANARY_PROTECT
+             /* ------------------------ */)
+         {
+            *p_bitmask |= StackStatementDetails::CANDIDATE_NOT_CLEAR;
+            return 1;
+         }
+         
+         return 0;
       }
       
-      if (*(canary_t *)find_storage_rightCanary(p_stack->storage, p_stack->bytes) != STK_CANARY)
+      case StackStatus::INITIALIZED:
       {
-         *p_bitmask |= StackDetails::STORAGE_RIGHT_CANARY_ATTACKED;
-         *p_bitmask |= StackDetails::BANNED;
+         *p_bitmask |= StackStatementDetails::REINITIALIZATION;
+         return 1;
+      }
+   
+      case StackStatus::BANNED:
+      {
+         *p_bitmask |= StackStatementDetails::STATEMENT_WITH_BANNED_STACK;
+         return 1;
+      }
+      
+      default:
+      {
+         return 1;
       }
    }
-#endif
-
-#ifdef STK_HASH_PROTECT
-   size_t verifyHash = 0;
-   
-   /// ?change expression
-   if (calc_stack_hash(p_stack, &verifyHash))
-   {
-      *p_bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-   }
-   
-   if (p_stack->hash != verifyHash)
-   {
-      *p_bitmask |= StackStatementDetails::HASH_NOT_VERIFIED | StackDetails::BANNED;
-   }
-#endif
-   
-   if (*p_bitmask != 0)
-      return 1;
-   
-   return 0;
 }
+
+static error_t stack_inspect(const Stack *const p_stack, StackTracker *const p_tracker, bitmask_t *const p_bitmask)
+{
+   switch (p_tracker->status)
+   {
+      case StackStatus::CANDIDATE:
+      {
+         *p_bitmask |= StackStatementDetails::STATEMENT_WITH_CANDIDATE_STACK;
+         return 1;
+      }
+   
+      case StackStatus::INITIALIZED:
+      {
+#ifdef    STK_CANARY_PROTECT
+         if (p_stack->leftCanary != STK_CANARY)
+         {
+            *p_bitmask |= StackDetails::LEFT_CANARY_ATTACKED;
+         }
+      
+         if (p_stack->rightCanary != STK_CANARY)
+         {
+            *p_bitmask |= StackDetails::RIGHT_CANARY_ATTACKED;
+         }
+      
+         if (p_stack->storage != nullptr)
+         {
+            if (*(canary_t *)find_storage_leftCanary(p_stack->storage) != STK_CANARY)
+            {
+               *p_bitmask |= StackDetails::STORAGE_LEFT_CANARY_ATTACKED;
+            }
+         
+            if (*(canary_t *)find_storage_rightCanary(p_stack->storage, p_stack->bytes) != STK_CANARY)
+            {
+               *p_bitmask |= StackDetails::STORAGE_RIGHT_CANARY_ATTACKED;
+            }
+         }
+#endif // STK_CANARY_PROTECT
+
+#ifdef    STK_HASH_PROTECT
+         size_t verifyHash = 0;
+      
+         /// ?change expression
+         if (calc_stack_hash(p_stack, &verifyHash))
+         {
+            *p_bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
+         }
+      
+         if (p_stack->hash != verifyHash)
+         {
+            *p_bitmask |= StackStatementDetails::HASH_NOT_VERIFIED;
+         }
+#endif // STK_HASH_PROTECT
+      
+         if (*p_bitmask != 0)
+         {
+            p_tracker->status = StackStatus::BANNED;
+            return 1;
+         }
+      
+         return 0;
+      }
+      
+      case StackStatus::BANNED:
+      {
+         *p_bitmask |= StackStatementDetails::STATEMENT_WITH_BANNED_STACK;
+         return 1;
+      }
+      
+      default:
+      {
+         return 1;
+      }
+   }
+}
+
 #endif // STK_UNPROTECT
 
 #ifdef    STK_CANARY_PROTECT
@@ -506,47 +629,57 @@ static error_t stack_size_decrease(Stack *const p_stack, bitmask_t *const p_bitm
 
 bitmask_t stack_init_(Stack *const p_stack, const size_t userMinCapacity)
 {
-  bitmask_t bitmask = 0;
-  
-  if (p_stack == nullptr) {
-    return bitmask | StackStatementDetails::STACK_NULLPTR;
-  }
-
-#ifndef   STK_UNPROTECT
-  if (is_stack_initialized(p_stack)) {
-    return bitmask | StackStatementDetails::CANDIDATE_NOT_CLEAN;
-  }
-#endif // STK_UNPROTECT
-  
-  size_t minCapacity = 0;
-  
-  if (calc_min_capacity(userMinCapacity, &minCapacity, &bitmask))
+   bitmask_t bitmask = 0;
+   
+   if (p_stack == nullptr) {
+    return bitmask |= StackStatementDetails::STACK_NULLPTR;
+   }
+   
+   #ifndef   STK_UNPROTECT
+   StackTracker *const p_tracker = get_tracker(p_stack);
+   
+   if (candidate_inspect(p_stack, p_tracker->status, &bitmask))
+     return bitmask;
+   #endif // STK_UNPROTECT
+   
+   size_t minCapacity = 0;
+   
+   if (calc_min_capacity(userMinCapacity, &minCapacity, &bitmask))
     return bitmask;
-  
-  p_stack->minCapacity = minCapacity;
-  p_stack->capacity    = minCapacity;
-  p_stack->size        = 0;
-  p_stack->storage     = nullptr;
-
-#ifdef    STK_CANARY_PROTECT
-  p_stack->leftCanary  = STK_CANARY;
-  p_stack->bytes       = 0;
-  p_stack->rightCanary = STK_CANARY;
-  
-  storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, &bitmask);
-#else
-  storage_update(&p_stack->storage, p_stack->capacity, p_stack->size, &bitmask);
-#endif // STK_CANARY_PROTECT
-
-
-#ifdef    STK_HASH_PROTECT
-  p_stack->hash = 0;
-  
-  if (calc_stack_hash(p_stack, &p_stack->hash))
-    bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-#endif // STK_HASH_PROTECT
-  
-  return bitmask;
+   
+   p_stack->minCapacity = minCapacity;
+   p_stack->capacity    = minCapacity;
+   p_stack->size        = 0;
+   p_stack->storage     = nullptr;
+   
+   #ifdef    STK_CANARY_PROTECT
+   p_stack->bytes       = 0;
+   p_stack->leftCanary  = STK_CANARY;
+   p_stack->rightCanary = STK_CANARY;
+   
+   if (storage_update(&p_stack->storage, &p_stack->bytes, p_stack->capacity, p_stack->size, &bitmask))
+   {
+     return bitmask;
+   }
+   #else
+   if (storage_update(&p_stack->storage, p_stack->capacity, p_stack->size, &bitmask))
+   {
+     return bitmask;
+   }
+   #endif // STK_CANARY_PROTECT
+   
+   #ifdef    STK_HASH_PROTECT
+   p_stack->hash = 0;
+   
+   if (calc_stack_hash(p_stack, &p_stack->hash))
+   {
+     return bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
+   }
+   #endif // STK_HASH_PROTECT
+   
+   p_tracker->status = StackStatus::INITIALIZED;
+   
+   return StackStatementDetails::SUCCESS;
 }
 
 bitmask_t stack_push_(Stack *const p_stack, const element_t element)
@@ -554,23 +687,36 @@ bitmask_t stack_push_(Stack *const p_stack, const element_t element)
   bitmask_t bitmask = 0;
   
   if (p_stack == nullptr)
-    return bitmask | StackStatementDetails::STACK_NULLPTR;
-
-#ifndef   STK_UNPROTECT
-  if (stack_inspect(p_stack, &bitmask))
+    return bitmask |= StackStatementDetails::STACK_NULLPTR;
+  
+  #ifndef   STK_UNPROTECT
+  StackTracker *const p_tracker = get_tracker(p_stack);
+  
+  if (stack_inspect(p_stack, p_tracker, &bitmask))
+  {
     return bitmask;
-#endif // STK_UNPROTECT
+  }
+  
+  if (p_stack->size == STK_MAX_CAPACITY_)
+  {
+     return bitmask |= StackDetails::FULL;
+  }
+  #endif // STK_UNPROTECT
   
   if (stack_size_increase(p_stack, &bitmask) == 0)
     *(element_t *)find_lastElement(p_stack->storage, p_stack->size) = element;
-
-#ifdef    STK_HASH_PROTECT
+  
+  #ifdef    STK_HASH_PROTECT
   if (calc_stack_hash(p_stack, &p_stack->hash))
   {
     bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-    bitmask |= StackDetails::BANNED;
   }
-#endif // STK_HASH_PROTECT
+  #endif // STK_HASH_PROTECT
+  
+  if ((bitmask & StackDetails::FULL) != bitmask)
+  {
+    p_tracker->status = StackStatus::BANNED;
+  }
   
   return bitmask;
 }
@@ -589,8 +735,17 @@ bitmask_t stack_pop_(Stack *const p_stack, element_t *const p_output)
     return bitmask;
 
 #ifndef   STK_UNPROTECT
-  if (stack_inspect(p_stack, &bitmask))
-    return bitmask;
+  StackTracker *const p_tracker = get_tracker(p_stack);
+  
+  if (stack_inspect(p_stack, p_tracker, &bitmask))
+  {
+     return bitmask;
+  }
+   
+   if (p_stack->size == 0)
+   {
+      return bitmask |= StackDetails::EMPTY;
+   }
 #endif // STK_UNPROTECT
   
   *p_output = *(element_t *)find_lastElement(p_stack->storage, p_stack->size);
@@ -600,11 +755,15 @@ bitmask_t stack_pop_(Stack *const p_stack, element_t *const p_output)
 #ifdef    STK_HASH_PROTECT
   if (calc_stack_hash(p_stack, &p_stack->hash))
   {
-    bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
-    bitmask |= StackDetails::BANNED;
+      bitmask |= StackStatementDetails::MEMORY_NOT_ALLOCATED;
   }
 #endif // STK_HASH_PROTECT
   
+   if ((bitmask & StackDetails::EMPTY) != bitmask)
+   {
+     p_tracker->status = StackStatus::BANNED;
+   }
+
   return bitmask;
 }
 
@@ -628,9 +787,17 @@ void stack_destroy_(Stack *const p_stack)
 #ifdef    STK_HASH_PROTECT
     p_stack->hash          = 0;
 #endif // STK_HASH_PROTECT
+    
+    StackTracker *const p_tracker = find_tracker(p_stack);
+    
+    if (p_tracker != nullptr)
+    {
+       p_tracker->status = StackStatus::CANDIDATE;
+    }
   }
 }
 // -------------------------------- /static functions  -----------------------------------------------------------------
+
 
 
 // --------------------------------  export functions  -----------------------------------------------------------------
