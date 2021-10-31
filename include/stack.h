@@ -47,6 +47,14 @@ void stack_destroy(Stack *const p_stack);
 #undef STK_HASH_PROTECT
 #endif // STK_UNPROTECT
 
+#ifdef STK_CANARY_PROTECT
+#define STK_INSPECTOR
+#endif
+
+#ifdef STK_HASH_PROTECT
+#define STK_INSPECTOR
+#endif
+
 // --------------------------------  includes  -------------------------------------------------------------------------
 #include <cstddef>
 #include <cstdint>

@@ -26,22 +26,25 @@ int main()
 //
 //   stack.storage = nullptr;
 //   stack_push(&stack, 100);
-
-   
-   
-//
-   stack_push(&stack, 200);
-   stack_push(&stack, 300);
-   
    
    
    stk_element_t i = 0;
    
+   stack_push(&stack, 200);
+   stack_push(&stack, 300);
+   
+   
    stack_pop(&stack, &i);
-   stack_pop(&stack, &i);
+   stack.storage = nullptr;
+   stack.bytes = 0;
+   
+   stack_destroy(&stack);
+   stack_init(&stack);
+   
+   stack_push(&stack, 400);
    stack_pop(&stack, &i);
    
-//   printf("%" SPECIFIER, i);
+   printf("%" SPECIFIER, i);
    
 
 //   stack_dump(&stack1);

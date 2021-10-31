@@ -19,11 +19,11 @@ typedef stk_canary_t  canary_t;
 
 struct Dump
 {
-   const Stack *p_stack;
-   char*  log;
-   size_t size;
-   long   init_line;
-   long   ban_line;
+   const Stack    *p_stack;
+   char*           log;
+   size_t          size;
+   long            init_line;
+   long            ban_line;
    StackLogCallers prevCaller;
 };
 
@@ -175,7 +175,8 @@ static int process_init(Dump *const p_dump, const char *const filename, const lo
          {
             dump_update(p_dump, "WARNING! This stack has already been inited at line (%ld) and not destroyed,\n"
                                 "         but stack_init won't signal about it.\n"
-                                "         May be data loss\n",
+                                "         May be data loss.\n"
+                                "         Use #define STK_FOOL_PROTECT for detecting such problems.\n",
                                 p_dump->init_line);
          }
          else
