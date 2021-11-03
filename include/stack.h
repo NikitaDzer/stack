@@ -9,16 +9,6 @@
 #define SPECIFIER STK_ELEMENT_SPECIFIER
 #endif // STK_ELEMENT_SPECIFIER
 
-const size_t STK_MIN_CAPACITY_ = (STK_MIN_CAPACITY & (STK_MIN_CAPACITY - 1)) == 0
-                                 ? STK_MIN_CAPACITY
-                                 : pow(2, ceil(log(STK_MIN_CAPACITY) / log(2)));
-const size_t STK_MAX_CAPACITY_ = STK_MIN_CAPACITY > STK_MAX_CAPACITY
-                                 ? STK_MIN_CAPACITY_
-                                 : STK_MAX_CAPACITY > (SIZE_MAX >> 1)
-                                   ? (SIZE_MAX >> 1) + 1
-                                   : pow(2, ceil(log(STK_MAX_CAPACITY) / log(2)));
-
-struct Stack;
 
 #ifdef    STK_PRODUCTION
 #undef STK_UNPROTECT
@@ -43,75 +33,44 @@ void stack_pop(Stack *const p_stack, stk_element_t *const p_output);
 void stack_destroy(Stack *const p_stack);
 #else
 #ifdef    STK_UNPROTECT
+#undef STK_ANTI_FOOL_PROTECT
 #undef STK_CANARY_PROTECT
 #undef STK_HASH_PROTECT
 #endif // STK_UNPROTECT
 
-#ifdef STK_CANARY_PROTECT
-#define STK_INSPECTOR
-#endif
-
-#ifdef STK_HASH_PROTECT
-#define STK_INSPECTOR
-#endif
+typedef size_t stk_bitmask_t;
+struct Stack;
 
 // --------------------------------  includes  -------------------------------------------------------------------------
 #include <cstddef>
 #include <cstdint>
 
-typedef size_t stk_bitmask_t;
-
 #include "dump.h"
 
-#ifdef    STK_HASH_PROTECT
-#include "hash.h"
-#endif // STK_HASH_PROTECT
+#ifndef   STK_UNPROTECT
+#include "protect.h"
+#endif // STK_UNPROTECT
 // -------------------------------- /includes  -------------------------------------------------------------------------
 
 
 // --------------------------------  typedefs  --------------------------------------------------------------------------
 typedef size_t stk_bitmask_t;
-
-#ifdef    STK_CANARY_PROTECT
-typedef size_t stk_canary_t;
-#endif // STK_CANARY_PROTECT
 // -------------------------------- /typedefs  -------------------------------------------------------------------------
 
 
 // --------------------------------  constants  ------------------------------------------------------------------------
-const char         STK_POISON = 0x66;
+const char          STK_POISON               = 0x66;
+const stk_bitmask_t STK_BITMASK_SYSTEM_ERROR = 1ULL << (sizeof(stk_bitmask_t) * CHAR_BIT - 1);
 
-#ifdef STK_CANARY_PROTECT
-const stk_canary_t STK_CANARY = 0xD1AB011CB13D;
-#endif // STK_CANARY_PROTECT
+const size_t STK_MIN_CAPACITY_ = (STK_MIN_CAPACITY & (STK_MIN_CAPACITY - 1)) == 0
+                                 ? STK_MIN_CAPACITY
+                                 : pow(2, ceil(log(STK_MIN_CAPACITY) / log(2)));
 
-enum StackDetails
-{
-   HEALTHY                        = 0 << 0,
-   EMPTY                          = 1 << 1,
-   FULL                           = 1 << 2,
-   LEFT_CANARY_ATTACKED           = 1 << 3,
-   RIGHT_CANARY_ATTACKED          = 1 << 4,
-   STORAGE_LEFT_CANARY_ATTACKED   = 1 << 5,
-   STORAGE_RIGHT_CANARY_ATTACKED  = 1 << 6,
-};
-
-enum StackStatementDetails
-{
-   SUCCESS                        = 0 << 16,
-   ERROR                          = 1 << 16,
-   STACK_NULLPTR                  = 1 << 17,
-   OUTPUT_NULLPTR                 = 1 << 18,
-   CANDIDATE_NOT_CLEAR            = 1 << 19,
-   WRONG_MIN_CAPACITY             = 1 << 20,
-   STORAGE_NOT_UPDATED            = 1 << 21,
-   STATEMENT_WITH_BANNED_STACK    = 1 << 22,
-   UNINITIALIZED_STACK            = 1 << 23,
-   MEMORY_NOT_ALLOCATED           = 1 << 24,
-   HASH_NOT_VERIFIED              = 1 << 25,
-   REINITIALIZATION               = 1 << 26,
-   STATEMENT_WITH_CANDIDATE_STACK = 1 << 27,
-};
+const size_t STK_MAX_CAPACITY_ = STK_MIN_CAPACITY > STK_MAX_CAPACITY
+                                 ? STK_MIN_CAPACITY_
+                                 : STK_MAX_CAPACITY > (SIZE_MAX >> 1)
+                                   ? (SIZE_MAX >> 1) + 1
+                                   : pow(2, ceil(log(STK_MAX_CAPACITY) / log(2)));
 // -------------------------------- /constants  ------------------------------------------------------------------------
 
 
@@ -146,17 +105,16 @@ struct Stack
 // --------------------------------  export functions  -----------------------------------------------------------------
 #ifdef STK_DEBUG
 #define stack_init(p_stack, minCapacity)                                                         \
-        stack_log((p_stack), CALLER_STACK_INIT, __FILE__, __LINE__, stack_init_((p_stack), (minCapacity)), (minCapacity))
+        process_init((p_stack), (minCapacity), ( __FILE__), (__LINE__))
 
 #define stack_push(p_stack, element)                                                             \
-        stack_log((p_stack), CALLER_STACK_PUSH, __FILE__, __LINE__, stack_push_((p_stack), (element)), (element))
-        
-#define stack_pop(p_stack, p_output)                                                              \
-        stack_log((p_stack), CALLER_STACK_POP, __FILE__, __LINE__, stack_pop_((p_stack), (p_output)), (p_output), (#p_output))
-        
-#define stack_destroy(p_stack)                                                                   \
-        stack_destroy_((p_stack)),                                                               \
-        stack_log((p_stack), CALLER_STACK_DESTROY, __FILE__, __LINE__, 0)
+        process_push((p_stack), (element), ( __FILE__), (__LINE__))
+
+#define stack_pop(p_stack, p_output)                                                             \
+        process_pop((p_stack), (p_output), ( __FILE__), (__LINE__))
+
+#define stack_destroy(p_stack)                                                             \
+        process_destroy((p_stack), ( __FILE__), (__LINE__))
 
 stk_bitmask_t stack_init_(Stack *const p_stack, const size_t minCapacity = STK_MIN_CAPACITY_);
 

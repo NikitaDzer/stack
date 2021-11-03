@@ -1,9 +1,9 @@
 #include "../include/hash.h"
 
-hash_t qhash(const void *const data, const size_t data_bytes)
+hash_t qhash(const void *const buffer, const size_t buffer_bytes)
 {
-   const char       *byte     = (char *)data;
-   const char *const lastByte = byte + data_bytes;
+   const char       *byte     = (char *)buffer;
+   const char *const lastByte = byte + buffer_bytes;
    hash_t            hash     = 0xDED007;
    
    while (byte < lastByte)

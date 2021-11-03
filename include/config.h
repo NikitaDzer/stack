@@ -7,7 +7,7 @@
 #define STK_DEBUG
 
 //#define STK_UNPROTECT
-#define STK_FOOL_PROTECT
+#define STK_ANTI_FOOL_PROTECT
 #define STK_CANARY_PROTECT
 #define STK_HASH_PROTECT
 
@@ -18,7 +18,7 @@ const size_t STK_MIN_CAPACITY = 2;
 const size_t STK_MAX_CAPACITY = (SIZE_MAX >> 1) + 1;
 
 #ifndef STK_PRODUCTION
-#ifdef  STK_FOOL_PROTECT
+#ifdef  STK_ANTI_FOOL_PROTECT
 const size_t STK_STATIC_TRACKERS_NUMBER = 4;
 const bool   STK_TRACK_ALL_STACKS = true;
 #endif
